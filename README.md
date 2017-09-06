@@ -63,12 +63,14 @@ In order to write amiibo information to a tag, the tag must be type NTAG215 and 
 ## References & Credits
 Wifiibo mostly uses software & libraries written by others.  The following resources were used to develop Wifiibo:
 * [Kostia Plays](https://games.kel.mn/en/create-amiibo-clones-with-arduino/) - Tons of info on how to read & write amiibos by @konstantin-kelemen
-* [amiitool](https://github.com/socram8888/amiitool) - Software to encrypt/decrypt amiibo data
+* [amiitool](https://github.com/socram8888/amiitool) - Software to encrypt/decrypt amiibo data by @socram8888
 * [GBATemp](http://wiki.gbatemp.net/wiki/Amiibo) - amiibo data structure information
 * [3dBrew](https://www.3dbrew.org/wiki/Amiibo) - amiibo/NTAG215 data structure information
 
-### To-Do
+### Possible Enhancements
 * MFRC-522 NFC chip support
   * Pull requests welcome; ensure it implements the NFCInterface pure virtual class
 * Card emulation support using PN532
   * Not sure if this is possible- the documentation on the PN532 states that in emulation mode, only 4-byte IDs are supported.  Might be able to supply raw page data to get it to work.
+* SD card support
+  * The amiitool library has some SD support (using SdFat for long filename support), but it has not been tested.
