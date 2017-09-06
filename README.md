@@ -49,7 +49,7 @@ If new software releases are made, they will show up in the "releases" folder.  
 ## Using Wifiibo
 When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up its own hotspot called "Wifiibo."  Connect to the hotspot using your phone or computer, then open a web browser and go to http://192.168.4.1 to access Wifiibo.  Click on the "Configure Wifi" button, enter your Wifi network credentials, and click submit.
 
-Once connected to Wifi, you can access Wifiibo by going to http://wifiibo.local in your broswer.  Alternatively, some routers will allow you to go to "http://wifiibo." (note the '.' at the end).  Tip: Once you get to the Wifiibo page, you can click on the IP in the top-right corner of the page.  Using the IP directly seems to be faster on some Windows computers.
+Once connected to Wifi, you can access Wifiibo by going to http://wifiibo.local in your broswer.  Alternatively, some routers will allow you to go to [http://wifiibo.](http://wifiibo.) (note the '.' at the end).  Tip: Once you get to the Wifiibo page, you can click on the IP in the top-right corner of the page.  Using the IP directly seems to be faster on some Windows computers.
 
 In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encryption keys.  Click on the red button labeled "Upload keys" to import or upload your amiibo encryption keys.  The keys file must be named "key_retail.bin".  Once you have successfully imported the amiibo encryption keys, the red "Upload keys" button will disappear.
 
