@@ -43,6 +43,9 @@ Wifiibo depends on a number of additional Arduino libraries (which are needed if
 ### Compiling
 In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.
 
+### Updating
+If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
+
 ## Using Wifiibo
 When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up its own hotspot called "Wifiibo."  Connect to the hotspot using your phone or computer, then open a web browser and go to http://192.168.4.1 to access Wifiibo.  Click on the "Configure Wifi" button, enter your Wifi network credentials, and click submit.
 
@@ -50,8 +53,18 @@ Once connected to Wifi, you can access Wifiibo by going to http://wifiibo.local 
 
 In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encryption keys.  Click on the red button labeled "Upload keys" to import or upload your amiibo encryption keys.  The keys file must be named "key_retail.bin".  Once you have successfully imported the amiibo encryption keys, the red "Upload keys" button will disappear.
 
-Using Wifiibo is fairly straightforward.  In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
+Using Wifiibo is fairly straightforward.  amiibo data is pulled from the excellent [amiibo API](https://github.com/N3evin/AmiiboAPI/) by @N3vin.
+In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
 
-## Updating
-If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
+## References & Credits
+Wifiibo mostly uses software & libraries written by others.  The following resources were used to develop Wifiibo:
+* [Kostia Plays](https://games.kel.mn/en/create-amiibo-clones-with-arduino/) - Tons of info on how to read & write amiibos by @konstantin-kelemen
+* [amiitool](https://github.com/socram8888/amiitool) - Software to encrypt/decrypt amiibo data
+* [GBATemp](http://wiki.gbatemp.net/wiki/Amiibo) - amiibo data structure information
+* [3dBrew](https://www.3dbrew.org/wiki/Amiibo) - amiibo/NTAG215 data structure information
 
+### To-Do
+* MFRC-522 NFC chip support
+  * Pull requests welcome; ensure it implements the NFCInterface pure virtual class
+* Card emulation support using PN532
+  * Not sure if this is possible- the documentation on the PN532 states that in emulation mode, only 4-byte IDs are supported.  Might be able to supply raw page data to get it to work.
