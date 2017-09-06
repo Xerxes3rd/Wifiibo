@@ -9,9 +9,13 @@ The library that runs most of the amiibo functions is a port of [amiitool](https
 * View your amiibo collection using any web browser (even on your phone!)
 
 ## Screenshots
+Main Page:
 ![Main Page](/screenshots/main.png?=raw=true "Main Page")
+Filtering displayed amiibo:
 ![Filters](/screenshots/filter.png?=raw=true "Filters")
+Read an existing amiibo tag/figure:
 ![Read Amiibo](/screenshots/read.png?=raw=true "Read amiibo")
+Upload saved amiibo data:
 ![Upload Amiibo](/screenshots/upload.png?=raw=true "Upload amiibo")
 
 ## Getting Started
