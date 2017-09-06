@@ -48,5 +48,6 @@ In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encry
 
 Using Wifiibo is fairly straightforward.  In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
 
-
+## Updating
+If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
 
