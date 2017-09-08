@@ -70,12 +70,13 @@ Wifiibo mostly uses software & libraries written by others.  The following resou
 * [amiitool](https://github.com/socram8888/amiitool) - Software to encrypt/decrypt amiibo data by @socram8888
 * [GBATemp](http://wiki.gbatemp.net/wiki/Amiibo) - amiibo data structure information
 * [3dBrew](https://www.3dbrew.org/wiki/Amiibo) - amiibo/NTAG215 data structure information
+* [amiibo API](https://github.com/N3evin/AmiiboAPI/) - Online amiibo database & index by @N3vin
 
 ### Possible Enhancements
 * MFRC-522 NFC chip support
-  * Pull requests welcome; ensure it implements the NFCInterface pure virtual class
+  * Pull requests welcome; ensure it implements the NFCInterface pure virtual class.
 * Card emulation support using PN532
   * Not sure if this is possible- the documentation on the PN532 states that in emulation mode, only 4-byte IDs are supported.  Might be able to supply raw page data to get it to work.
 * SD card support
-  * The amiitool library has some SD support (using SdFat for long filename support), but it has not been tested.
+  * The amiitool library has some SD support (using the SdFat library for long filename support), but it has not been tested.
 * The Wifi scan results JSON info in the main program might need to be changed from static to dynamic to handle a large number of results
