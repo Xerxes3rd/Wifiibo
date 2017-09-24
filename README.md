@@ -9,13 +9,13 @@ The library that runs most of the amiibo functions is a port of [amiitool](https
 * View your amiibo collection using any web browser (even on your phone!)
 
 ## Screenshots
-Main Page:
+Main Page:  
 ![Main Page](/screenshots/main.png?=raw=true "Main Page")
-Filtering displayed amiibo:
+Filtering displayed amiibo:  
 ![Filters](/screenshots/filter.png?=raw=true "Filters")
-Read an existing amiibo tag/figure:
+Read an existing amiibo tag/figure:  
 ![Read Amiibo](/screenshots/read.png?=raw=true "Read amiibo")
-Upload saved amiibo data:
+Upload saved amiibo data:  
 ![Upload Amiibo](/screenshots/upload.png?=raw=true "Upload amiibo")
 
 ## Getting Started
@@ -59,6 +59,18 @@ In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encry
 
 Using Wifiibo is fairly straightforward.  amiibo data is pulled from the excellent [amiibo API](https://github.com/N3evin/AmiiboAPI/) by @N3vin.
 In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
+
+## Enclosure
+If you have access to a 3D printer, you can print an enclosure for Wifiibo.  The enclosure is in two halves, which press-fit together.  The lid piece will need to be printed upside-down and requires support material for the "inset" on the top.  The Wemos D1 Mini board can be press-fit into the base, and the PN532 board can be screwed into the standoffs in the lid.  I made the standoffs slightly smaller than the #4-40 screws I used, so I tapped the mounts using an inexpensive tapping tool.
+
+Enclosure (created in OpenSCAD):  
+![Enclosure Rendering](/screenshots/enclosure-render.png?=raw=true "Enclosure Rendering")
+
+Assembled Enclsoure (Open):  
+![Enclosure Assembled Open](/screenshots/enclosure-open.png?=raw=true "Enclosure Assembled (Open)")
+
+Assembled Enclosure (Closed):  
+![Enclosure Assembled Closed](/screenshots/enclosure-closed.png?=raw=true "Enclosure Assembled (Closed)")
 
 ## Developer Notes
 * The main Wifiibo page is called amiitool.htm.  There's a batch script & accompanying executable that's used to gzip the page, then convert the binary into a C-style header file so the page is embedded in the firmware.  This way, any future firmware updates will contain the updated web page (otherwise users would have to upload it separately).
