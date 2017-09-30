@@ -26,7 +26,7 @@ Wifiibo requires the following hardware:
 
 Make the following connections between the ESP8266 and the PN532 board:
 
-ESP Pin | PN532 Pin
+PN532 Pin | ESP Pin
 --------|----------
 MOSI | D7
 MISO | D6
