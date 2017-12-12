@@ -24,6 +24,8 @@ Wifiibo requires the following hardware:
 * ESP8266 (Wemos D1 Mini from Aliexpress: ~$3)
 * PN532 NFC board (PN532 V3 board from Aliexpress: ~$5)
 
+Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: ON, ch2: OFF).
+
 Make the following connections between the ESP8266 and the PN532 board:
 
 ESP Pin | PN532 Pin

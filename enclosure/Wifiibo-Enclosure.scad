@@ -1,23 +1,24 @@
 $fn=180;
 
 // NFC Board Type
-NFC_Type = "PN532"; // [PN532,MFRC522]
+//NFC_Type = "PN532"; // [PN532,MFRC522]
 
 // NFC Board Type
-//NFC_Type = "MFRC522"; // [PN532,MFRC522]
+NFC_Type = "MFRC522"; // [PN532,MFRC522]
 
 // NFC Board Mounting
-//NFC_Mount_Type = "PressureFit"; // [PressureFit,Standoffs]
+NFC_Mount_Type = "PressureFit"; // [PressureFit,Standoffs]
 
 // NFC Board Mounting
-NFC_Mount_Type = "Standoffs"; // [PressureFit,Standoffs]
+//NFC_Mount_Type = "Standoffs"; // [PressureFit,Standoffs]
 
 cylInnerDia = (NFC_Type=="PN532") ? 58 : 78; // 58 for PN532, 90 for MFRC522
+
 cylThickness = 3;
 cylOuterDia = cylInnerDia + cylThickness;
 cylHeight = 15;
 cylBaseDia = cylInnerDia + 15;
-cylBaseHeight = 15;
+cylBaseHeight = 12; // Originally 15; 12 might work?
 topLipHeight = 2;
 topLipDia = 54;
 
@@ -30,7 +31,7 @@ wemosLength = 34.25;
 wemosThickness = 1.05;
 
 pn532HoleDist = 37.3;
-pn532BoardWidth = 43.75;
+pn532BoardWidth = 43;
 pn532BoardLength = 40.75;
 
 mfrc522BoardWidth = 39;
@@ -41,11 +42,10 @@ mfrc522HoleOffsets = 37.5;
 
 amiiboBaseDia = 49.5;
 
-//color("blue") import("Wifiibo-Enclosure-Bottom.stl");
-
-tagLid();
+//translate([0, 0, 15])
+//tagLid();
 //translate([0, 0, -cylBaseHeight/2-cylHeight/2-5])
-//tagBase();
+tagBase();
 
 module standoff(height)
 {
@@ -97,7 +97,7 @@ module tagLid()
     {
         if (NFC_Mount_Type=="PressureFit")
         {
-            tagLidPN532PressureFit();
+            tagLidPressureFit(cylInnerDia-13.7, pn532BoardWidth);
         }
         else
         {
@@ -108,29 +108,12 @@ module tagLid()
     {
         if (NFC_Mount_Type=="PressureFit")
         {
-            tagLidMFRC522PressureFit();
+            tagLidPressureFit(cylInnerDia-5, mfrc522BoardWidth);
         }
         else
         {
             tagLidMFRC522Standoffs();
         }
-    }
-}
-
-module tagLidMFRC522PressureFit()
-{
-    mountH = 5;
-    mountW = 2;     
-    translate([0, cylInnerDia/2-2.5, 3-mountH])
-    rotate([0, 0, 180])
-    union()
-    {
-        translate([mfrc522BoardWidth/2, 0, 0])
-        cube([mountW, mfrc522BoardLength-1, mountH]);
-        translate([-mfrc522BoardWidth/2-mountW, 0, 0])
-        cube([mountW, mfrc522BoardLength-1, mountH]);
-        translate([-mfrc522BoardWidth/2, 0, 0])
-        cube([mfrc522BoardWidth, mountW, mountH]); 
     }
 }
 
@@ -157,23 +140,6 @@ module tagLidMFRC522Standoffs()
     }
 }
 
-module tagLidPN532PressureFit()
-{
-    mountH = 5;
-    mountW = 2;     
-    translate([0, 21.8, 3-mountH])
-    rotate([0, 0, 180])
-    union()
-    {
-        translate([pn532BoardWidth/2, 0, 0])
-        cube([mountW, pn532BoardLength-1, mountH]);
-        translate([-pn532BoardWidth/2-mountW, 0, 0])
-        cube([mountW, pn532BoardLength-1, mountH]);
-        translate([-pn532BoardWidth/2, 0, 0])
-        cube([pn532BoardWidth, mountW, mountH]); 
-    }
-}
-
 module tagLidPN532Standoffs()
 {
     standoffHeight = 6;
@@ -185,6 +151,24 @@ module tagLidPN532Standoffs()
         standoff(standoffHeight);
         translate([-pn532HoleDist/2, 0, 0])
         standoff(standoffHeight);
+    }
+}
+
+module tagLidPressureFit(railLen, width)
+{
+    mountH = 5;
+    mountW = 2;
+
+    translate([0, railLen/2, 3-mountH])
+    rotate([0, 0, 180])
+    union()
+    {
+        translate([width/2, 0, 0])
+        cube([mountW, railLen, mountH]);
+        translate([-width/2-mountW, 0, 0])
+        cube([mountW, railLen, mountH]);
+        //translate([-pn532BoardWidth/2, 0, 0])
+        //cube([pn532BoardWidth, mountW, mountH]); 
     }
 }
 

@@ -52,7 +52,7 @@ const char* http_password = "admin";
 
 volatile bool shouldReboot = false;
 
-const char* versionStr = "1.0";
+const char* versionStr = "1.1";
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
