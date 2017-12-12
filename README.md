@@ -28,7 +28,7 @@ Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: ON, ch2: 
 
 Make the following connections between the ESP8266 and the PN532 board:
 
-ESP Pin | PN532 Pin
+PN532 Pin | ESP Pin
 --------|----------
 MOSI | D7
 MISO | D6
