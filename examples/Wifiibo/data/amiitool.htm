@@ -24,7 +24,7 @@
 		
 		#alturl {
 			float: right;
-			vertial-align: middle;
+			vertical-align: middle;
 			margin: 5px 0px 0px 0px;
 			display: none;
 		}
@@ -174,8 +174,7 @@
 		.filters{
 			box-sizing: border-box;
 			padding: 5px 30px 30px;
-			margin: 20px;
-			margin-bottom: 100px;
+			margin: 20px 20px 100px;
 			width: 260px;
 			background-color: #FFF;
 			border: 1px solid #DBE3E7;
@@ -597,10 +596,9 @@
 			}
 			
 			.main-content{
-				margin: 0px auto;
 				padding: 0px;
-				marginLeft: 0px;
-				
+				margin: 0px auto 0px 0px;
+
 			}
 			
 			.sidenav {
@@ -618,13 +616,13 @@
 			}
 			
 			.print-border-empty {
-				content-align: center;
+				align-content: center;
 				height: 100%;
 				width: 100%;
 			}
 			
 			.print-border {
-				content-align: center;
+				align-content: center;
 				height: 100%;
 				width: 100%;
 
@@ -646,7 +644,7 @@
 			}
 			
 			.products-list > li{
-				box-sizing: none;
+				box-sizing: unset;
 				border: none;
 				border-radius: 0px;
 				box-shadow: none;
@@ -736,7 +734,7 @@
 				</a>
 				<div class="extra-margin"></div>
 				<ul class="product-description" style="display: none">
-					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${unescape(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${unescape(taginfo[name])}</li>\n`).join('')}
+					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${decodeURIComponent(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${decodeURIComponent(taginfo[name])}</li>\n`).join('')}
 				</ul>
 				</div>
 			</li>
@@ -749,7 +747,7 @@
 				${(img != null) ? `<a href="#" class="product-photo"><img src="${img}" ${imgTags} alt="Image not found"/></a>` : ``}
 				<h2><a href="#">${title}</a></h2>
 				<ul class="product-description">
-					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${unescape(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${unescape(taginfo[name])}</li>\n`).join('')}
+					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${decodeURIComponent(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${decodeURIComponent(taginfo[name])}</li>\n`).join('')}
 				</ul>
 				${(showButtons) ? `
 				<button onclick="window.location.href='?filename=${taginfo["filename"]}#writeamiibo'">Write Tag</button>
@@ -802,7 +800,7 @@
 		function getHost() {
 			var host = document.location.host;
 
-			if (document.location.host == "") {
+			if (document.location.host === "") {
 				host = '192.168.1.118'; // For testing
 				//host = '192.168.4.1';
 			}
@@ -864,7 +862,7 @@
 				var page = document.getElementsByClassName('all-products')[0];
 				lastAmiiboList = obj["tagInfoList"];
 				processAmiiboList(obj["tagInfoList"]);
-				if (page.className.indexOf('visible') == -1) {
+				if (page.className.indexOf('visible') === -1) {
 					page.className += ' visible';
 				}
 			}
@@ -925,7 +923,7 @@
 				var network = infoJSON[i];
 				if ((network != null) && 
 					(network['ssid'] != null) && 
-					(network['ssid'] != undefined) &&
+					(network['ssid'] !== undefined) &&
 					(network['ssid'].length > 0)) {
 					html += '<tr>';
 					html += '<td><a href="javascript:setWifiSSIDField(\''+network["ssid"]+'\')">' + network["ssid"] + '</a></td>';
@@ -973,7 +971,7 @@
 			// When a checkbox is unchecked we need to remove its value from the filters object.
 			if(!(elem.checked)) {
 
-				if(filters[specName] && filters[specName].length && (filters[specName].indexOf(elem.value) != -1)){
+				if(filters[specName] && filters[specName].length && (filters[specName].indexOf(elem.value) !== -1)){
 
 					// Find the checkbox value in the corresponding array inside the filters object.
 					var index = filters[specName].indexOf(elem.value);
@@ -1030,7 +1028,7 @@
 			var i;
 			var j;
 			
-			var main = document.getElementsByClassName("main-content")
+			var main = document.getElementsByClassName("main-content");
 			for (i = 0; i < main.length; i++) {
 				var page = main[i].getElementsByClassName("page");
 				for (j = 0; j < page.length; j++) {
@@ -1129,7 +1127,7 @@
 						var value = children[child].getAttribute("filtervalue");
 						if ((filters[key] !== undefined)) {
 							for (i in filters[key]) {
-								if (filters[key][i] == value) {
+								if (filters[key][i] === value) {
 									//console.log("Matched " + key + "=" + value);
 									matchedFilter++;
 								}
@@ -1159,7 +1157,7 @@
 
 				xmlhttp.onreadystatechange = function() {
 					if (this.readyState === XMLHttpRequest.DONE) {
-					  if (this.status == 200) {
+					  if (this.status === 200) {
 						amiiboDBJSON = JSON.parse(this.responseText);
 						if (lastAmiiboList != null) {
 							processAmiiboList(lastAmiiboList);
@@ -1298,7 +1296,7 @@
 				console.log(e);
 			}
 			
-			if (page.className.indexOf('visible') == -1) {
+			if (page.className.indexOf('visible') === -1) {
 				page.className += ' visible';
 			}
 		}
@@ -1407,7 +1405,7 @@
 					ctx.lineWidth=1;
 					ctx.fillStyle="#000000";
 					ctx.lineStyle="#000000";
-					if (urlParams["print"] != "notext")
+					if (urlParams["print"] !== "notext")
 						drawText(ctx, mainName, 120, 18);
 						
 					ctx.canvas.parentNode.download = mainName + ".png";
@@ -1417,7 +1415,7 @@
 					img.onload = function () {
 						drawImageScaled(img, ctx, 0.5, 22);
 						ctx.canvas.parentNode.href = ctx.canvas.toDataURL();
-					}
+					};
 					img.src = imgURL;
 					//ctx.canvas.parentNode.href = ctx.canvas.toDataURL();
 				});
@@ -1430,7 +1428,7 @@
 		function renderSinglePage(elementID, data) {
 			var page = document.getElementById(elementID);
 			page.style.display = 'block';
-			if (page.className.indexOf('visible') == -1) {
+			if (page.className.indexOf('visible') === -1) {
 				page.className += ' visible';
 			}
 		}
@@ -1495,8 +1493,7 @@
 		}
 		function getQueryFilename() {
 			var search = parseQuery(window.location.search);
-			var filename = search["filename"];
-			return filename;
+			return search["filename"];
 		}
 		function parseQuery(search) {
 			var args = search.substring(1).split('&');
@@ -1552,8 +1549,8 @@
 			document.getElementById(element).appendChild(button);
 
 			function httpPostProcessRequest(){
-			  if (xmlHttp.readyState == 4){
-				if(xmlHttp.status != 200) alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
+			  if (xmlHttp.readyState === 4){
+				if(xmlHttp.status !== 200) alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
 				else {
 				  //tree.refreshPath(path.value);
 				}
@@ -1570,7 +1567,7 @@
 			  xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
 			  xmlHttp.send(formData);
 			  windowHashChange();
-			}
+			};
 			input.onchange = function(e){
 			  if(input.files.length === 0) return;
 			  var filename = input.files[0].name;
@@ -1581,14 +1578,12 @@
 		  var filenameMaxLen = 32-1-1-4;
 		  var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
 		  var name = /(.*)\.[^.]+$/.exec(filename)[1];
-		  if(typeof name !== undefined){
-			//if(name.length > 8) name = name.substring(0, 8);
+		  if(typeof name !== "undefined"){
 			if(name.length > filenameMaxLen) name = name.substring(0, filenameMaxLen);
 			filename = name;
 		  }
-		  if(typeof ext !== undefined){
-			//if(ext === "html") ext = "htm";
-			//else if(ext === "jpeg") ext = "jpg";
+		  if(typeof ext !== "undefined"){
+
 			filename = filename + "." + ext;
 		  }
 		  if(path.value === "/" || path.value.lastIndexOf("/") === 0){
@@ -1601,13 +1596,12 @@
 			var keyText = document.getElementById("retail-key-text").value.replace(/[^A-Fa-f0-9]/g, "");
 			document.getElementById("retail-key-text").value = keyText;
 			
-			if (keyText.length == 320) {
+			if (keyText.length === 320) {
 				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key length OK, uploading..."; });
 				var data = new Uint8Array(160);
 				
 				for (var i = 0; i < keyText.length; i+=2) {
-					var val = parseInt(keyText.substring(i, i+2), 16);
-					data[i/2] = val;
+					data[i/2] = parseInt(keyText.substring(i, i+2), 16);
 				}
 				
 				var blob = new Blob([data], {type: 'application/octet-stream'});
@@ -1718,10 +1712,10 @@
 			return rtn;
 		}
 		function insertParam(key, value) {
-			key = escape(key); value = escape(value);
+			key = encodeURIComponent(key); value = encodeURIComponent(value);
 
 			var kvp = document.location.search.substr(1).split('&');
-			if (kvp == '') {
+			if (kvp === '') {
 				document.location.search = '?' + key + '=' + value;
 			}
 			else {
@@ -1729,7 +1723,7 @@
 				var i = kvp.length; var x; while (i--) {
 					x = kvp[i].split('=');
 
-					if (x[0] == key) {
+					if (x[0] === key) {
 						x[1] = value;
 						kvp[i] = x.join('=');
 						break;
