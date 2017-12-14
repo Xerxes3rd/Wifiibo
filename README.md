@@ -41,6 +41,7 @@ GND | GND
 Wifiibo depends on a number of additional Arduino libraries (which are needed if you want to compile Wifiibo):
 * [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
 * [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
+* [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 * [Adafruit_PN532](https://github.com/adafruit/Adafruit-PN532)
   * A modified version of this library, Adafruit_PN532Ex, is included with Wifiibo
 * [mbedtls](https://tls.mbed.org/)
