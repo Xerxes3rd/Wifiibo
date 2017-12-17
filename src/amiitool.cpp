@@ -197,9 +197,21 @@ int amiitool::loadFileSPIFFS(fs::File *f, bool lenient)
 			retval = -3;
 		}
 	}
+	else if (f->size() == NFC3D_AMIIBO_SIZE_SMALL)
+	{
+		memset((void*)original, 0, NFC3D_AMIIBO_SIZE);
+		if (f->readBytes((char*)original, NFC3D_AMIIBO_SIZE_SMALL))
+		{
+			retval = loadFileFromData(original, NFC3D_AMIIBO_SIZE, lenient);
+		}
+		else
+		{
+			retval = -4;
+		}
+	}
 	else
 	{
-		retval = -4;
+		retval = -5;
 	}
 	
 	if (retval < 0)

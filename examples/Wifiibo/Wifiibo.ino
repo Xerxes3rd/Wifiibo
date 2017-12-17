@@ -445,7 +445,7 @@ void getAmiiboList(String *outStr)
       //DBG_OUTPUT_PORT.print("Opening file ");
       //DBG_OUTPUT_PORT.println(dir.fileName());
       fs::File f = dir.openFile("r");
-      if (f && (f.size() == NTAG215_SIZE)) {
+      if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE))) {
         //DBG_OUTPUT_PORT.print("Reading file ");
         //DBG_OUTPUT_PORT.println(dir.fileName());
 

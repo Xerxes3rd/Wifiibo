@@ -734,7 +734,7 @@
 				</a>
 				<div class="extra-margin"></div>
 				<ul class="product-description" style="display: none">
-					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${decodeURIComponent(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${decodeURIComponent(taginfo[name])}</li>\n`).join('')}
+					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${unescape(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${unescape(taginfo[name])}</li>\n`).join('')}
 				</ul>
 				</div>
 			</li>
@@ -747,7 +747,7 @@
 				${(img != null) ? `<a href="#" class="product-photo"><img src="${img}" ${imgTags} alt="Image not found"/></a>` : ``}
 				<h2><a href="#">${title}</a></h2>
 				<ul class="product-description">
-					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${decodeURIComponent(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${decodeURIComponent(taginfo[name])}</li>\n`).join('')}
+					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${unescape(taginfo[name])}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${unescape(taginfo[name])}</li>\n`).join('')}
 				</ul>
 				${(showButtons) ? `
 				<button onclick="window.location.href='?filename=${taginfo["filename"]}#writeamiibo'">Write Tag</button>
