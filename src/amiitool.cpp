@@ -164,6 +164,14 @@ bool amiitool::isKeyLoaded()
 }
 
 #ifdef __XTENSA__
+bool amiitool::isSPIFFSFilePossiblyAmiibo(fs::File *f)
+{
+	if (f && ((f->size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f->size() <= NFC3D_AMIIBO_SIZE_HASH)))
+		return true;
+	
+	return false;
+}
+
 int amiitool::loadFileSPIFFS(fs::File *f, bool lenient)
 {
 	int retval = -1;
@@ -186,7 +194,7 @@ int amiitool::loadFileSPIFFS(fs::File *f, bool lenient)
 		
 		f->close();
 	}
-	else if (f->size() == NFC3D_AMIIBO_SIZE)
+	else if ((f->size() >= NFC3D_AMIIBO_SIZE) && (f->size() <= NFC3D_AMIIBO_SIZE_HASH))
 	{
 		if (f->readBytes((char*)original, NFC3D_AMIIBO_SIZE))
 		{
@@ -197,10 +205,10 @@ int amiitool::loadFileSPIFFS(fs::File *f, bool lenient)
 			retval = -3;
 		}
 	}
-	else if (f->size() == NFC3D_AMIIBO_SIZE_SMALL)
+	else if ((f->size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f->size() < NFC3D_AMIIBO_SIZE))
 	{
 		memset((void*)original, 0, NFC3D_AMIIBO_SIZE);
-		if (f->readBytes((char*)original, NFC3D_AMIIBO_SIZE_SMALL))
+		if (f->readBytes((char*)original, f->size()))
 		{
 			retval = loadFileFromData(original, NFC3D_AMIIBO_SIZE, lenient);
 		}
@@ -317,48 +325,32 @@ int amiitool::encryptLoadedFile(uint8_t * uid)
 	return 0;
 }
 
+void amiitool::readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, bool byteSwap)
+{
+	for (int i = 0; i < stringLen; i++)
+	{
+		uint8_t byte0 = *(startByte+(i*2)+0);
+		uint8_t byte1 = *(startByte+(i*2)+1);
+
+		if ((byte0 == 0x00) && (byte1 == 0x00))
+		  break;
+
+		int ind = i*6;
+		outStr[ind+0] = '\\';
+		outStr[ind+1] = 'u';
+		sprintf(outStr+ind+2, "%02x", byteSwap ? byte1 : byte0);
+		sprintf(outStr+ind+4, "%02x", byteSwap ? byte0 : byte1);
+	}
+}
+
 int amiitool::readDecryptedFields()
 {
 	amiiboInfo.amiiboName[0] = '\0';
 	
-	for (int i = 0; i < AMIIBO_NAME_LEN/2; i++)
-	{
-		uint8_t byte0 = *(modified+AMIIBO_NAME_OFFSET+(i*2)+0);
-		uint8_t byte1 = *(modified+AMIIBO_NAME_OFFSET+(i*2)+1);
-
-		if ((byte0 == 0x00) && (byte1 == 0x00))
-		  break;
-
-		int ind = i*6;
-		amiiboInfo.amiiboName[ind+0] = '%';
-		amiiboInfo.amiiboName[ind+1] = 'u';
-		sprintf(amiiboInfo.amiiboName+ind+2, "%02x", byte0);
-		sprintf(amiiboInfo.amiiboName+ind+4, "%02x", byte1);
-	}
-	
-	for (int i = 0; i < AMIIBO_NAME_LEN/2; i++)
-	{
-		uint8_t byte0 = *(modified+AMIIBO_DEC_OWNERMII_NAME_OFFSET+(i*2)+0);
-		uint8_t byte1 = *(modified+AMIIBO_DEC_OWNERMII_NAME_OFFSET+(i*2)+1);
-
-		if ((byte0 == 0x00) && (byte1 == 0x00))
-		  break;
-
-		int ind = i*6;
-		amiiboInfo.amiiboOwnerMiiName[ind+0] = '%';
-		amiiboInfo.amiiboOwnerMiiName[ind+1] = 'u';
-		sprintf(amiiboInfo.amiiboOwnerMiiName+ind+2, "%02x", byte1);
-		sprintf(amiiboInfo.amiiboOwnerMiiName+ind+4, "%02x", byte0);
-	}
+	readUTF16BEStr(modified+AMIIBO_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboName, false);
+	readUTF16BEStr(modified+AMIIBO_DEC_OWNERMII_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboOwnerMiiName, true);
 	
 	readIDFields(modified, AMIIBO_DEC_CHARDATA_OFFSET, &amiiboInfo);
-	/*
-	amiiboInfo.amiiboCharacterNumber = ((modified[AMIIBO_DEC_CHARDATA_OFFSET+0] & AMIIBO_CHARNUM_MASK) << 8) | modified[AMIIBO_DEC_CHARDATA_OFFSET+1];
-	amiiboInfo.amiiboVariation = modified[AMIIBO_DEC_CHARDATA_OFFSET+2];
-	amiiboInfo.amiiboForm = modified[AMIIBO_DEC_CHARDATA_OFFSET+3];
-	amiiboInfo.amiiboNumber = (modified[AMIIBO_DEC_CHARDATA_OFFSET+4] << 8) | modified[AMIIBO_DEC_CHARDATA_OFFSET+5];
-	amiiboInfo.amiiboSet = modified[AMIIBO_DEC_CHARDATA_OFFSET+6];
-	*/
 }
 
 void amiitool::readIDFields(uint8_t *data, unsigned short offset, amiiboInfoStruct *info)

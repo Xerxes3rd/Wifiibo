@@ -17,6 +17,7 @@
 #include <amiitool.h>
 #include <spiffs/spiffs_config.h> // For SPIFFS_OBJ_NAME_LEN
 #include "index_htm_gz.h"
+#include "favicon_ico_gz.h"
 
 #define DBG_OUTPUT_PORT Serial
 
@@ -36,6 +37,7 @@ Adafruit_PN532Ex pn532(D4);
 volatile bool triggerReadNFC = false;
 volatile bool triggerWriteNFC = false;
 volatile bool triggerDummyWriteNFC = false;
+volatile bool triggerListAmiibo = false;
 amiitool atool((char*)keyfilename);
 
 char newWifiSSID[32] = "";
@@ -52,7 +54,7 @@ const char* http_password = "admin";
 
 volatile bool shouldReboot = false;
 
-const char* versionStr = "1.1";
+const char* versionStr = "1.1a";
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
@@ -248,6 +250,19 @@ void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, Aws
         DBG_OUTPUT_PORT.println("Save amiibo");
         saveAmiibo(root["filename"]);
       }
+	  else if (!strncmp("listamiiboasync", root["func"], 15))
+	  {
+		DBG_OUTPUT_PORT.println("List amiibo (async)");
+		triggerListAmiibo = true;
+	  }
+	  else if (!strncmp("listamiibochunk", root["func"], 15))
+	  {
+		DBG_OUTPUT_PORT.println("List amiibo (chunk)");
+        String outStr;
+		String lastFilename = root["lastFilename"];
+        getAmiiboList_Chunk(&lastFilename, &outStr);
+        client->text(outStr);
+	  }
       else if (!strncmp("listamiibo", root["func"], 10))
       {
         DBG_OUTPUT_PORT.println("List amiibo");
@@ -429,6 +444,181 @@ bool getAmiiboInfo(String filename)
   return loadResult >= 0;
 }
 
+bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
+{
+  bool retval = false;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  JsonArray& tagInfo = root.createNestedArray("tagInfoList_Chunk");
+  uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
+  char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
+
+  const int MAX_COUNT_PER_MESSAGE = 25;
+  int count = 0;
+  bool startAddingItems = false;
+  
+  if ((lastFilename == NULL) || (lastFilename->equals(""))) {
+	root["start"] = "true";
+	startAddingItems = true;
+  }
+
+  fs::Dir dir = SPIFFS.openDir("/");
+  
+  while ((count < MAX_COUNT_PER_MESSAGE) && dir.next())
+  {
+    if (dir.fileName().endsWith(".bin"))
+    {
+	  if (dir.fileName().equalsIgnoreCase(*lastFilename))
+	  {
+		startAddingItems = true;
+	  }
+	  if (startAddingItems)
+	  {
+        //DBG_OUTPUT_PORT.print("Opening file ");
+        //DBG_OUTPUT_PORT.println(dir.fileName());
+        fs::File f = dir.openFile("r");
+  	    if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
+          //DBG_OUTPUT_PORT.print("Reading file ");
+          //DBG_OUTPUT_PORT.println(dir.fileName());
+  
+          JsonObject& tag = tagInfo.createNestedObject();
+          
+          tag["filename"] = dir.fileName();
+          
+          f.seek(AMIIBO_ENC_CHARDATA_OFFSET, fs::SeekSet);
+          f.readBytes((char*)bin, AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN);
+  
+          for (int i = 0; i < AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN; i++)
+          {
+            sprintf(id+(i*2), "%02x", bin[i]);
+          }
+  
+          tag["id"] = String(id);
+  		  DBG_OUTPUT_PORT.print(dir.fileName());
+  		  DBG_OUTPUT_PORT.print(": ");
+  		  DBG_OUTPUT_PORT.print(String(id));
+  		  DBG_OUTPUT_PORT.print("\n");
+  		  count++;
+        }
+  	    else {
+  		  if (f.size() != AMIIBO_KEY_FILE_SIZE)
+  		  {
+  		    DBG_OUTPUT_PORT.print("Skipping ");
+  		    DBG_OUTPUT_PORT.print(dir.fileName());
+  		    DBG_OUTPUT_PORT.println(": File size incorrect.");
+  		  }
+  	    }
+        f.close();
+	  }
+    }
+  }
+  
+  if (count < MAX_COUNT_PER_MESSAGE)
+  {
+	// End
+	root["end"] = "true";
+	retval = false;
+  }
+  else
+  {
+	retval = true;
+  }
+
+  //String json;
+  //root.prettyPrintTo(json);
+  //DBG_OUTPUT_PORT.println(json);
+
+  DBG_OUTPUT_PORT.print("Sending ");
+  DBG_OUTPUT_PORT.print(count);
+  DBG_OUTPUT_PORT.println(" amiibo entries.");
+
+  if (outStr != NULL)
+    root.printTo(*outStr);
+}
+
+
+bool getAmiiboList_Async(fs::Dir *dir, bool start)
+{
+  bool retval = false;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  JsonArray& tagInfo = root.createNestedArray("tagInfoList_Async");
+  uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
+  char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
+
+  const int MAX_COUNT_PER_MESSAGE = 25;
+  int count = 0;
+  if (start) {
+	root["start"] = "true";
+  }
+  while ((count < MAX_COUNT_PER_MESSAGE) && dir->next())
+  {
+    if (dir->fileName().endsWith(".bin"))
+    {
+      //DBG_OUTPUT_PORT.print("Opening file ");
+      //DBG_OUTPUT_PORT.println(dir->fileName());
+      fs::File f = dir->openFile("r");
+      //if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE_HASH))) {
+	  if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
+        //DBG_OUTPUT_PORT.print("Reading file ");
+        //DBG_OUTPUT_PORT.println(dir->fileName());
+
+        JsonObject& tag = tagInfo.createNestedObject();
+        
+        tag["filename"] = dir->fileName();
+        
+        f.seek(AMIIBO_ENC_CHARDATA_OFFSET, fs::SeekSet);
+        f.readBytes((char*)bin, AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN);
+
+        for (int i = 0; i < AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN; i++)
+        {
+          sprintf(id+(i*2), "%02x", bin[i]);
+        }
+
+        tag["id"] = String(id);
+		//DBG_OUTPUT_PORT.print(dir->fileName());
+		//DBG_OUTPUT_PORT.print(": ");
+		//DBG_OUTPUT_PORT.print(String(id));
+		//DBG_OUTPUT_PORT.print("\n");
+		count++;
+      }
+	  else {
+		if (f.size() != AMIIBO_KEY_FILE_SIZE)
+		{
+		  DBG_OUTPUT_PORT.print("Skipping ");
+		  DBG_OUTPUT_PORT.print(dir->fileName());
+		  DBG_OUTPUT_PORT.println(": File size incorrect.");
+		}
+	  }
+      f.close();
+    }
+  }
+  
+  if (count < MAX_COUNT_PER_MESSAGE)
+  {
+	// End
+	root["end"] = "true";
+	retval = false;
+  }
+  else
+  {
+	retval = true;
+  }
+
+  //String json;
+  //root.prettyPrintTo(json);
+  //DBG_OUTPUT_PORT.println(json);
+
+  DBG_OUTPUT_PORT.print("Sending ");
+  DBG_OUTPUT_PORT.print(count);
+  DBG_OUTPUT_PORT.println(" amiibo entries.");
+  String outStr;
+  root.printTo(outStr);
+  websocket.textAll(outStr);
+	
+  return retval;
+}
+
 void getAmiiboList(String *outStr)
 {
   DynamicJsonBuffer jsonBuffer;
@@ -445,7 +635,8 @@ void getAmiiboList(String *outStr)
       //DBG_OUTPUT_PORT.print("Opening file ");
       //DBG_OUTPUT_PORT.println(dir.fileName());
       fs::File f = dir.openFile("r");
-      if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE))) {
+      //if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE_HASH))) {
+	  if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
         //DBG_OUTPUT_PORT.print("Reading file ");
         //DBG_OUTPUT_PORT.println(dir.fileName());
 
@@ -462,6 +653,10 @@ void getAmiiboList(String *outStr)
         }
 
         tag["id"] = String(id);
+		//DBG_OUTPUT_PORT.print(dir.fileName());
+		//DBG_OUTPUT_PORT.print(": ");
+		//DBG_OUTPUT_PORT.print(String(id));
+		//DBG_OUTPUT_PORT.print("\n");
       }
       f.close();
     }
@@ -643,6 +838,12 @@ void handleRootRequest(AsyncWebServerRequest *request) {
   request->send(response);
 }
 
+void handleFaviconRequest(AsyncWebServerRequest *request) {
+  AsyncWebServerResponse *response = request->beginResponse_P(200, "image/x-icon", favicon_ico_gz, favicon_ico_gz_len);
+  response->addHeader("Content-Encoding", "gzip");
+  request->send(response);
+}
+
 void setup(){
   DBG_OUTPUT_PORT.begin(115200);
   DBG_OUTPUT_PORT.setDebugOutput(true);
@@ -790,7 +991,7 @@ void setup(){
           sendStatusCharArray("Failed to save file: filename too long.");
           fileOK = false;
         }
-        else if ((filename == keyfilename) && (len == 160)) {
+        else if ((filename == keyfilename) && (len == AMIIBO_KEY_FILE_SIZE)) {
           DBG_OUTPUT_PORT.println("Uploading retail key.");
           isKey = true;
           fileOK = true;
@@ -931,6 +1132,7 @@ void setup(){
   server.on("/", HTTP_GET, handleRootRequest);
   server.on("/index.htm", HTTP_GET, handleRootRequest);
   server.on("/index.html", HTTP_GET, handleRootRequest);
+  server.on("/favicon.ico", HTTP_GET, handleFaviconRequest);
 
   // Simple Firmware Update Form
   server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -994,5 +1196,18 @@ void loop(){
       websocket.textAll(wifiScanJSON);
       lastWifiScanMillis = millis();
     }
+  }
+  
+  if (triggerListAmiibo)
+  {
+	DBG_OUTPUT_PORT.println("Listing amiibo (async).");
+    bool start = true;
+	fs::Dir dir = SPIFFS.openDir("/");
+	while (getAmiiboList_Async(&dir, start)) {
+		yield();
+		start = false;
+	}
+	triggerListAmiibo = false;
+	DBG_OUTPUT_PORT.println("Completed listing amiibo (async).");
   }
 }

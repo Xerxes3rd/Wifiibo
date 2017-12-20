@@ -14,6 +14,7 @@
 #endif
 #include <NFCInterface.h>
 
+#define AMIIBO_KEY_FILE_SIZE 160
 #define NTAG215_SIZE 540
 #define NTAG215_PAGESIZE 4
 #define AMIIBO_NAME_LEN 20 // Actually 10 UTF-16 chars
@@ -79,6 +80,7 @@ class amiitool
 		bool loadKeySD(const char * keyfilename);
 		bool isKeyLoaded();
 #ifdef __XTENSA__
+		static bool isSPIFFSFilePossiblyAmiibo(fs::File *f);
 		int loadFileSPIFFS(fs::File *f, bool lenient);
 #endif
 		bool loadFileFromData(uint8_t * filedata, int size, bool lenient);
@@ -95,6 +97,7 @@ class amiitool
 		void cancelNFCWrite();
 		
 		static void printData(uint8_t *data, int len, int valsPerCol, bool headers, bool formatForC);
+		static void readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, bool byteSwap);
 		
 	private:
 		bool keyloaded;

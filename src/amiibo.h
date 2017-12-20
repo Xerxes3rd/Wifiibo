@@ -15,6 +15,7 @@
 
 #define NFC3D_AMIIBO_SIZE 540
 #define NFC3D_AMIIBO_SIZE_SMALL 532
+#define NFC3D_AMIIBO_SIZE_HASH 572
 
 #ifdef __cplusplus
 extern "C" {

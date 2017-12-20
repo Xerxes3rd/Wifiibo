@@ -32,49 +32,56 @@ import os
 import re
 import struct
 import sys
-
-header = """\
-#ifndef GENERATED_INDEX_HTM_GZ_H_INCLUDED
-#define GENERATED_INDEX_HTM_GZ_H_INCLUDED
-
-"""
+import subprocess
 
 
-def output_bin(in_name, h):
-    basename = os.path.basename(in_name)
+def output_bin(in_name, out_name, h):
+    basename = os.path.basename(out_name)
     symbol_name = re.sub(r"\W", "_", basename)
-
-    with open(in_name, "rb") as i:
-        h.write("#define {}_len {}\n".format(symbol_name, os.stat(in_name).st_size))
-        h.write("const uint8_t index_htm_gz[] PROGMEM = {{\n".format(symbol_name))
-        while True:
-            block = i.read(16)
-            if len(block) < 16:
-                if len(block):
-                    h.write("\t")
-                    for b in block:
-                        # Python 2/3 compat
-                        if type(b) is str:
-                            b = ord(b)
-                        h.write("0x{:02x}, ".format(b))
-                    h.write("\n")
-                break
-            h.write("\t0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
-                    "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
-                    "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
-                    "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x},\n"
-                    .format(*struct.unpack("BBBBBBBBBBBBBBBB", block)))
+    define_name = "GENERATED_{}_H_INCLUDED".format(symbol_name.upper())
+    gz_len = 0
+	
+    proc = subprocess.Popen("gzip -9 {} -c".format(in_name), stdout=subprocess.PIPE)
+    #i = proc.communicate()[0]
+    #print out.upper()
+	
+    #with open(in_name, "rb") as i:
+    h.write("#ifndef {}\n".format(define_name))
+    h.write("#define {}\n".format(define_name))
+    h.write("\n");
+    h.write("const uint8_t {}[] PROGMEM = {{\n".format(symbol_name))
+    while True:
+        block = proc.stdout.read(16)
+        if len(block) < 16:
+            if len(block):
+                h.write("\t")
+                for b in block:
+                    # Python 2/3 compat
+                    if type(b) is str:
+                        b = ord(b)
+                    h.write("0x{:02x}, ".format(b))
+                h.write("\n")
+                gz_len += len(block)
+            break
+        h.write("\t0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
+                "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
+                "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x}, "
+                "0x{:02x}, 0x{:02x}, 0x{:02x}, 0x{:02x},\n"
+                .format(*struct.unpack("BBBBBBBBBBBBBBBB", block)))
+        gz_len += 16
+    
+    
     h.write("};\n")
-    h.write("const size_t {}_length = {};\n".format(symbol_name, os.stat(in_name).st_size))
-    h.write("#endif")
+    h.write("\n");
+    h.write("#define {}_len {}\n".format(symbol_name, gz_len))
+    h.write("const size_t {}_length = {};\n".format(symbol_name, gz_len))
+    h.write("#endif //{}\n".format(define_name))
 
 
 def output_set(out_name, in_names):
     with open(out_name + ".h", "w") as h:
-        h.write(header)
-
         for in_name in in_names:
-            output_bin(in_name, h)
+            output_bin(in_name, out_name, h)
 
 
 def _main():
