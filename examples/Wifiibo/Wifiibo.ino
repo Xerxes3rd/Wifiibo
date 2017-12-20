@@ -54,7 +54,7 @@ const char* http_password = "admin";
 
 volatile bool shouldReboot = false;
 
-const char* versionStr = "1.1a";
+const char* versionStr = "1.1b";
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
@@ -468,10 +468,6 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
   {
     if (dir.fileName().endsWith(".bin"))
     {
-	  if (dir.fileName().equalsIgnoreCase(*lastFilename))
-	  {
-		startAddingItems = true;
-	  }
 	  if (startAddingItems)
 	  {
         //DBG_OUTPUT_PORT.print("Opening file ");
@@ -509,6 +505,10 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
   		  }
   	    }
         f.close();
+	  }
+	  if (dir.fileName().equalsIgnoreCase(*lastFilename))
+	  {
+		startAddingItems = true;
 	  }
     }
   }
