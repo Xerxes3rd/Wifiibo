@@ -54,7 +54,9 @@ const char* http_password = "admin";
 
 volatile bool shouldReboot = false;
 
-const char* versionStr = "1.1b";
+const int MAX_COUNT_PER_MESSAGE = 25;
+
+const char* versionStr = "1.1b1";
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
@@ -260,7 +262,7 @@ void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, Aws
 		DBG_OUTPUT_PORT.println("List amiibo (chunk)");
         String outStr;
 		String lastFilename = root["lastFilename"];
-        getAmiiboList_Chunk(&lastFilename, &outStr);
+        getAmiiboList_Chunk(&lastFilename, &outStr, MAX_COUNT_PER_MESSAGE, root.containsKey("printFiles"));
         client->text(outStr);
 	  }
       else if (!strncmp("listamiibo", root["func"], 10))
@@ -444,7 +446,7 @@ bool getAmiiboInfo(String filename)
   return loadResult >= 0;
 }
 
-bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
+bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMessage, bool printFiles)
 {
   bool retval = false;
   DynamicJsonBuffer jsonBuffer;
@@ -453,7 +455,6 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
   uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
   char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
 
-  const int MAX_COUNT_PER_MESSAGE = 25;
   int count = 0;
   bool startAddingItems = false;
   
@@ -464,7 +465,7 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
 
   fs::Dir dir = SPIFFS.openDir("/");
   
-  while ((count < MAX_COUNT_PER_MESSAGE) && dir.next())
+  while ((count < maxCountPerMessage) && dir.next())
   {
     if (dir.fileName().endsWith(".bin"))
     {
@@ -490,10 +491,13 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
           }
   
           tag["id"] = String(id);
-  		  DBG_OUTPUT_PORT.print(dir.fileName());
-  		  DBG_OUTPUT_PORT.print(": ");
-  		  DBG_OUTPUT_PORT.print(String(id));
-  		  DBG_OUTPUT_PORT.print("\n");
+		  if (printFiles)
+		  {
+			DBG_OUTPUT_PORT.print(dir.fileName());
+			DBG_OUTPUT_PORT.print(": ");
+			DBG_OUTPUT_PORT.print(String(id));
+			DBG_OUTPUT_PORT.print("\n");
+		  }
   		  count++;
         }
   	    else {
@@ -513,7 +517,7 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
     }
   }
   
-  if (count < MAX_COUNT_PER_MESSAGE)
+  if (count < maxCountPerMessage)
   {
 	// End
 	root["end"] = "true";
@@ -537,7 +541,7 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr)
 }
 
 
-bool getAmiiboList_Async(fs::Dir *dir, bool start)
+bool getAmiiboList_Async(fs::Dir *dir, bool start, int maxCountPerMessage)
 {
   bool retval = false;
   DynamicJsonBuffer jsonBuffer;
@@ -546,12 +550,11 @@ bool getAmiiboList_Async(fs::Dir *dir, bool start)
   uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
   char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
 
-  const int MAX_COUNT_PER_MESSAGE = 25;
   int count = 0;
   if (start) {
 	root["start"] = "true";
   }
-  while ((count < MAX_COUNT_PER_MESSAGE) && dir->next())
+  while ((count < maxCountPerMessage) && dir->next())
   {
     if (dir->fileName().endsWith(".bin"))
     {
@@ -594,7 +597,7 @@ bool getAmiiboList_Async(fs::Dir *dir, bool start)
     }
   }
   
-  if (count < MAX_COUNT_PER_MESSAGE)
+  if (count < maxCountPerMessage)
   {
 	// End
 	root["end"] = "true";
@@ -1203,7 +1206,7 @@ void loop(){
 	DBG_OUTPUT_PORT.println("Listing amiibo (async).");
     bool start = true;
 	fs::Dir dir = SPIFFS.openDir("/");
-	while (getAmiiboList_Async(&dir, start)) {
+	while (getAmiiboList_Async(&dir, start, MAX_COUNT_PER_MESSAGE)) {
 		yield();
 		start = false;
 	}
