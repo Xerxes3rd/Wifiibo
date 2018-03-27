@@ -1,10 +1,10 @@
 $fn=180;
 
 // NFC Board Type
-//NFC_Type = "PN532"; // [PN532,MFRC522]
+NFC_Type = "PN532"; // [PN532,MFRC522]
 
 // NFC Board Type
-NFC_Type = "MFRC522"; // [PN532,MFRC522]
+//NFC_Type = "MFRC522"; // [PN532,MFRC522]
 
 // NFC Board Mounting
 NFC_Mount_Type = "PressureFit"; // [PressureFit,Standoffs]
