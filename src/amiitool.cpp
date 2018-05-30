@@ -405,12 +405,12 @@ bool amiitool::initNFC(NFCInterface *nfcObj)
   nfc->begin();
 
   nfcVersionData = nfc->getFirmwareVersion();
-  if (!nfcVersionData) {
+  if ((nfcVersionData == 0x00) || (nfcVersionData == 0xFF)) {
 	return false;
   }
-
-  sprintf(nfcChip, "PN5%X", ((nfcVersionData>>24) & 0xFF));
-  sprintf(nfcChipFWVer, "%d.%d", ((nfcVersionData>>16) & 0xFF), ((nfcVersionData>>8) & 0xFF));
+  
+  nfc->getChipTypeString(nfcChip);
+  nfc->getFirmwareVersionString(nfcChipFWVer);
 
   // configure board to read RFID tags
   nfc->SAMConfig();
@@ -420,7 +420,7 @@ bool amiitool::initNFC(NFCInterface *nfcObj)
 
 bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport) {
   uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID
   int8_t tries;
   bool retval = false;
@@ -457,9 +457,11 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
     //Serial.print(F("Tag UID: "));
     //PrintHexShort(uid, uidLength);
     //Serial.println();
+	const uint32_t reportInvervalMS = 500;
     int pct = 0;
     if (progressPercentReport != NULL) progressPercentReport(pct);
-    
+    uint32_t lastTimer = millis();
+
     if (uidLength == 7)
     {     
       uint8_t data[32];
@@ -485,8 +487,8 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
           }
           else if (tries == 1)
           {
-			char txt[32];
-			sprintf(txt, "Unable to read page: %d", i);
+            char txt[32];
+            sprintf(txt, "Unable to read page: %d", i);
             if (statusReport != NULL) statusReport(txt);
           }
           tries--;
@@ -494,10 +496,12 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
         }
 
         int newPct = (int)(pctScaleVal*(float)i);
-        if (newPct > pct+9)
+        if ((millis() - lastTimer) > reportInvervalMS)
+        //if (newPct > pct+9)
         {
           pct = newPct;
           if (progressPercentReport != NULL) progressPercentReport(pct);
+          lastTimer = millis();
         }
         
         if (!success)
@@ -511,9 +515,9 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
       if (statusReport != NULL) statusReport("This doesn't seem to be an amiibo.");
       success = false;
     }
-
+	
     if (success)
-    {
+    {  
 	  //Serial.println("Tag dump:");
 	  //printData(original, NTAG215_SIZE, 4, false, true);
       retval = loadFileFromData(original, NTAG215_SIZE, false);
@@ -539,6 +543,7 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
   }
 
   cancelRead = false;
+  nfc->ntag2xx_FinishedReading();
   
   return retval;
 }
@@ -729,4 +734,12 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 
 void amiitool::cancelNFCWrite() {
 	cancelWrite = true;
+}
+
+NFCInterface* amiitool::getNFC() {
+	return nfc;
+}
+
+bool amiitool::isNFCStarted() {
+	return nfcstarted;
 }

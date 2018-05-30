@@ -13,9 +13,15 @@
 #endif
 #include <AsyncJson.h>
 #include <Adafruit_PN532Ex.h>
+#include <MFRC522Ex.h>
 #include <amiibo.h>
 #include <amiitool.h>
-#include <spiffs/spiffs_config.h> // For SPIFFS_OBJ_NAME_LEN
+
+//#include <spiffs/spiffs_config.h> // For SPIFFS_OBJ_NAME_LEN
+#ifndef SPIFFS_OBJ_NAME_LEN
+#define SPIFFS_OBJ_NAME_LEN             (32)
+#endif
+
 #include "index_htm_gz.h"
 #include "favicon_ico_gz.h"
 
@@ -33,6 +39,7 @@ const int SDChipSelect = D8;
 const char* keyfilename = "/key_retail.bin";
 
 Adafruit_PN532Ex pn532(D4);
+MFRC522Ex mfrc522(D2, D3);
 
 volatile bool triggerReadNFC = false;
 volatile bool triggerWriteNFC = false;
@@ -56,7 +63,9 @@ volatile bool shouldReboot = false;
 
 const int MAX_COUNT_PER_MESSAGE = 25;
 
-const char* versionStr = "1.2a";
+const char* versionStr = "1.3";
+const uint32_t nfcVersionStrLen = 64;
+char nfcVersionStr[nfcVersionStrLen];
 
 // SKETCH BEGIN
 AsyncWebServer server(80);
@@ -70,7 +79,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     //client->ping();
     char ip[24];
     WiFi.localIP().toString().toCharArray(ip, 24);
-    client->printf("{\"status\":\"Connected\",\"serverip\":\"%s\",\"version\":\"%s\"}", ip, versionStr);
+    client->printf("{\"status\":\"Connected\",\"serverip\":\"%s\",\"version\":\"%s\",\"nfcversion\":\"%s\"}", ip, versionStr, nfcVersionStr);
     checkRetailKey();
   } else if(type == WS_EVT_DISCONNECT){
     DBG_OUTPUT_PORT.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
@@ -159,9 +168,9 @@ bool isSPIFFSFile(String path)
   return true;
 }
 
-bool dummyWriteTag() {
+bool dummyWriteTag_PN532() {
   uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID
   int8_t tries;
     
@@ -402,7 +411,7 @@ void handleNFC()
     triggerReadNFC = false;
     DBG_OUTPUT_PORT.printf("Writing NFC tag...");
     bool result = atool.writeTag(sendStatusCharArray, updateProgress);
-    //bool result = dummyWriteTag();
+    //bool result = dummyWriteTag_PN532();
     if (result)
     {
       sendStatusCharArray("Tag successfully written.");
@@ -414,7 +423,20 @@ void handleNFC()
     triggerDummyWriteNFC = false;
     DBG_OUTPUT_PORT.printf("(Dummy) Writing NFC tag...");
     //bool result = atool.writeTag(sendStatusCharArray, updateProgress);
-    bool result = dummyWriteTag();
+    bool result = false;
+    if (atool.isNFCStarted())
+    {
+      NFCInterface *nfcInt = atool.getNFC();
+      if (nfcInt != NULL)
+      {
+        switch (nfcInt->getChipType())
+        {
+        case NFCInterface::NFC_PN5XX:
+          dummyWriteTag_PN532();
+          break;
+        }
+      }
+    }
     if (result)
     {
       sendStatusCharArray("Tag successfully (dummy) written.");
@@ -1170,12 +1192,22 @@ void setup(){
   
   server.begin();
 
-  if (atool.initNFC(&pn532)) {
+  sprintf(nfcVersionStr, "NFC Error");
+  bool initSuccess = false;
+  initSuccess = atool.initNFC(&pn532);
+  if (!initSuccess)
+    initSuccess = atool.initNFC(&mfrc522);
+
+  if (initSuccess) {
+    sprintf(nfcVersionStr, "%sv%s", atool.nfcChip, atool.nfcChipFWVer);
     DBG_OUTPUT_PORT.print("NFC chip: ");
     DBG_OUTPUT_PORT.print(atool.nfcChip);
     DBG_OUTPUT_PORT.print(" FW ver: ");
     DBG_OUTPUT_PORT.print(atool.nfcChipFWVer);
     DBG_OUTPUT_PORT.println("");
+  }
+  else {
+	  DBG_OUTPUT_PORT.println("NFC hardware not found.");
   }
 
   //printFilesJSON();

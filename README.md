@@ -22,11 +22,11 @@ Upload saved amiibo data:
 ### Hardware
 Wifiibo requires the following hardware:
 * ESP8266 (Wemos D1 Mini from Aliexpress: ~$3)
-* PN532 NFC board (PN532 V3 board from Aliexpress: ~$5)
+* PN532 NFC board (PN532 V3 board from Aliexpress: ~$5) or MFRC522 Board (MFRC522 RFID Reader module from Aliexpress: ~$5)
 
-Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: ON, ch2: OFF).
+Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: OFF, ch2: ON).
 
-Make the following connections between the ESP8266 and the PN532 board:
+Make the following connections between the ESP8266 and the NFC board:
 
 PN532 Pin | ESP Pin
 --------|----------
@@ -37,6 +37,16 @@ SS | D4
 VCC | +5V
 GND | GND
 
+MFRC-522 Pin | ESP Pin
+--------|----------
+SDA | D2
+SCK | D5
+MOSI | D7
+MISO | D6
+GND | GND
+RST | D3
+3.3v | 3.3v
+
 ### Software Library Dependencies
 Wifiibo depends on a number of additional Arduino libraries (which are needed if you want to compile Wifiibo):
 * [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
@@ -44,11 +54,13 @@ Wifiibo depends on a number of additional Arduino libraries (which are needed if
 * [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 * [Adafruit_PN532](https://github.com/adafruit/Adafruit-PN532)
   * A modified version of this library, Adafruit_PN532Ex, is included with Wifiibo
+* [rfid](https://github.com/miguelbalboa/rfid)
+  * A modified version of this library, MFRC522Ex, is included with Wifiibo
 * [mbedtls](https://tls.mbed.org/)
   * A modified version of this library is included with Wifiibo
   
 ### Compiling
-In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
+In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 1.3.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
 
 ### Updating
 If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
@@ -64,7 +76,7 @@ Using Wifiibo is fairly straightforward.  amiibo data is pulled from the excelle
 In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
 
 ## Enclosure
-If you have access to a 3D printer, you can print an enclosure for Wifiibo.  The enclosure is in two halves, which press-fit together.  The lid piece will need to be printed upside-down and requires support material for the "inset" on the top.  The Wemos D1 Mini board can be press-fit into the base, and the PN532 board can be screwed into the standoffs in the lid.  I made the standoffs slightly smaller than the #4-40 screws I used, so I tapped the mounts using an inexpensive tapping tool.
+If you have access to a 3D printer, you can print an enclosure for Wifiibo.  The enclosure is in two halves, which press-fit together.  The lid piece will need to be printed upside-down and requires support material for the "inset" on the top.  The Wemos D1 Mini board can be press-fit into the base, and the NFC board can be screwed into the standoffs in the lid.  I made the standoffs slightly smaller than the #4-40 screws I used, so I tapped the mounts using an inexpensive tapping tool.  Alternatively, there's another lid version that allows the NFC board to be pressfit into the lid.
 
 Enclosure (created in OpenSCAD):  
 ![Enclosure Rendering](/screenshots/enclosure-render.png?=raw=true "Enclosure Rendering")
@@ -76,7 +88,7 @@ Assembled Enclosure (Closed):
 ![Enclosure Assembled Closed](/screenshots/enclosure-closed.png?=raw=true "Enclosure Assembled (Closed)")
 
 ## Developer Notes
-* The main Wifiibo page is called amiitool.htm.  There's a batch script & accompanying executable that's used to gzip the page, then convert the binary into a C-style header file so the page is embedded in the firmware.  This way, any future firmware updates will contain the updated web page (otherwise users would have to upload it separately).
+* The main Wifiibo page is called amiitool.htm.  There's a python script & accompanying executable that's used to gzip the page, then convert the binary into a C-style header file so the page is embedded in the firmware.  This way, any future firmware updates will contain the updated web page (otherwise users would have to upload it separately).
 * The main page (amiibool.htm) is pretty messy
 
 ## References & Credits
@@ -88,10 +100,12 @@ Wifiibo mostly uses software & libraries written by others.  The following resou
 * [amiibo API](https://github.com/N3evin/AmiiboAPI/) - Online amiibo database & index by @N3vin
 
 ### Possible Enhancements
-* MFRC-522 NFC chip support
-  * Pull requests welcome; ensure it implements the NFCInterface pure virtual class.
+* ~~MFRC-522 NFC chip support~~ Complete!
+  * ~~Pull requests welcome; ensure it implements the NFCInterface pure virtual class.~~
 * Card emulation support using PN532
   * Not sure if this is possible- the documentation on the PN532 states that in emulation mode, only 4-byte IDs are supported.  Might be able to supply raw page data to get it to work.
 * SD card support
   * The amiitool library has some SD support (using the SdFat library for long filename support), but it has not been tested.
 * The Wifi scan results JSON info in the main program might need to be changed from static to dynamic to handle a large number of results
+* Bulk upload & download (via ZIP file)
+  * This should be handled in the JavaScript frontend, since the ESP8266 doesn't have enough memory to handle it

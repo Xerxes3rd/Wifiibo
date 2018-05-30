@@ -171,6 +171,13 @@ class Adafruit_PN532Ex : public NFCInterface
   uint8_t  readGPIO(void);
   bool     setPassiveActivationRetries(uint8_t maxRetries);
   
+  // NFC Interface Functions
+  NFCInterface::NFCChipType getChipType();
+  void getChipTypeString(char * str);
+  void getFirmwareVersionString(char * str);
+  bool PICCStop();
+  void ntag2xx_FinishedReading();
+  
   // ISO14443A functions
   bool readID(uint8_t * uid, uint8_t * uidLength, uint16_t timeout);
   bool readPassiveTargetID(uint8_t cardbaudrate, uint8_t * uid, uint8_t * uidLength, uint16_t timeout = 0); //timeout 0 means no timeout - will block forever.

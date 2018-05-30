@@ -64,8 +64,8 @@ class amiitool
 		
 		amiiboInfoStruct amiiboInfo;
 		uint32_t nfcVersionData;
-		char nfcChip[8];
-		char nfcChipFWVer[8];
+		char nfcChip[16];
+		char nfcChipFWVer[16];
 
 		amiitool(char *keyFileName
 #ifdef USE_SDFAT
@@ -95,6 +95,8 @@ class amiitool
 		void cancelNFCRead();
 		bool writeTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport);
 		void cancelNFCWrite();
+		NFCInterface* getNFC();
+		bool isNFCStarted();
 		
 		static void printData(uint8_t *data, int len, int valsPerCol, bool headers, bool formatForC);
 		static void readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, bool byteSwap);

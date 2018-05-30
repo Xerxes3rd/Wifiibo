@@ -32,8 +32,24 @@
 		#version {
 			float: right;
 			//margin: -5px 0px 0px 70px;
-			margin: -15px 0px 0px 0px;
+			margin: -15px 10px 0px 0px;
 			display: none;
+		}
+		
+		#nfcversion {
+			float: right;
+			//margin: -5px 0px 0px 70px;
+			margin: -15px 0px 0px 0px;
+			display: noneif (obj["version"] != null) {
+				var elem = document.getElementById('version');
+				if (elem != null) {
+					var verStr = "v" + obj["version"];
+					if (obj["version"] != webVer)
+						verStr += '/' + webVer;
+					elem.innerHTML = verStr;
+					elem.style.display = "inline-block";
+				}
+			};
 		}
 		
 		#upload-button {
@@ -798,7 +814,7 @@
 		`;
 		
 		var pct = 0;
-		var webVer = "1.2a";
+		var webVer = "1.3";
 
 		setStatusMessage('Connecting to ' + getWSConnURL() + ' for amiibo list...');
 		var connection = new WebSocket(getWSConnURL(), ['arduino']);
@@ -816,7 +832,8 @@
 			var host = document.location.host;
 
 			if (document.location.host === "") {
-				host = '192.168.1.117'; // For testing
+				//host = '192.168.1.171'; // For testing
+				host = 'wifiibo.'; // For testing
 				//host = '192.168.4.1';
 			}
 
@@ -988,6 +1005,14 @@
 					var verStr = "v" + obj["version"];
 					if (obj["version"] != webVer)
 						verStr += '/' + webVer;
+					elem.innerHTML = verStr;
+					elem.style.display = "inline-block";
+				}
+			}
+			if (obj["nfcversion"] != null) {
+				var elem = document.getElementById('nfcversion');
+				if (elem != null) {
+					var verStr = "" + obj["nfcversion"];
 					elem.innerHTML = verStr;
 					elem.style.display = "inline-block";
 				}
@@ -1986,6 +2011,7 @@
 		<button onclick="window.location.href='#uploadretailkeys'" id="upload-button">Upload keys</button>
 		<button onclick="window.location.href='#configurewifi'" id="configurewifi-button">Configure Wifi</button>
 		<div id="alturl"></div><br/>
+		<div id="nfcversion">NFC:(Unknown)</div>
 		<div id="version">Version</div>
 		<div id="statusMessage" class="status-style"></div>
 		<!--button onclick="openNav()">Filters</button-->	

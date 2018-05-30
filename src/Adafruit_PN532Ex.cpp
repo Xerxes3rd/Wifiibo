@@ -55,7 +55,7 @@ byte pn532ack[] = {0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 byte pn532response_firmwarevers[] = {0x00, 0x00, 0xFF, 0x06, 0xFA, 0xD5, 0x03};
 
 // Uncomment these lines to enable debug output for PN532(SPI) and/or MIFARE related code
-// #define PN532DEBUG
+//#define PN532DEBUG
 // #define MIFAREDEBUG
 
 // If using Native Port on Arduino Zero or Due define as SerialUSB
@@ -1794,4 +1794,38 @@ uint8_t Adafruit_PN532Ex::spi_read(void) {
   }
 
   return x;
+}
+
+NFCInterface::NFCChipType Adafruit_PN532Ex::getChipType() {
+	return NFCInterface::NFC_PN5XX;
+}
+
+void Adafruit_PN532Ex::getChipTypeString(char * str) {
+  uint32_t nfcVersionData = getFirmwareVersion();
+  
+  if ((nfcVersionData == 0x00) || (nfcVersionData == 0xFF)) {
+    str[0] = '\0';
+    return;
+  }
+  
+  sprintf(str, "PN5%X", ((nfcVersionData>>24) & 0xFF));
+}
+
+void Adafruit_PN532Ex::getFirmwareVersionString(char * str) {
+  uint32_t nfcVersionData = getFirmwareVersion();
+  
+  if ((nfcVersionData == 0x00) || (nfcVersionData == 0xFF)) {
+    str[0] = '\0';
+    return;
+  }
+  
+  sprintf(str, "%d.%d", ((nfcVersionData>>16) & 0xFF), ((nfcVersionData>>8) & 0xFF));
+}
+
+bool Adafruit_PN532Ex::PICCStop() {
+  return true;
+}
+
+void Adafruit_PN532Ex::ntag2xx_FinishedReading() {
+	
 }
