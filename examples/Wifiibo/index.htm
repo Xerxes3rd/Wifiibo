@@ -53,7 +53,7 @@
 		}
 		
 		#upload-button {
-			display: none;
+			display: inline-block;
 			background-color: #f44242;
 		}
 		
@@ -1828,12 +1828,30 @@
 			path.value = path.value.substring(0, path.value.lastIndexOf("/")+1)+filename;
 		  }
 		}
+		function hashCode(str) {
+			return str.split('').reduce((prevHash, currVal) =>
+				(((prevHash << 5) - prevHash) + currVal.charCodeAt(0))|0, 0);
+		}
 		function uploadkeydata() {
 			var keyText = document.getElementById("retail-key-text").value.replace(/[^A-Fa-f0-9]/g, "");
+			var hashOK = false;
+			var lengthOK = false;
+			
+			if ((keyText.length > 320) && (keyText.toUpperCase().startsWith("1D"))) {
+				keyText = keyText.substring(0, 320);
+			}
+			
+			if (hashCode(keyText) === -1217838864) {
+				hashOK = true;
+			}
+			
+			if (keyText.length == 320) {
+				lengthOK = true;
+			}
 			document.getElementById("retail-key-text").value = keyText;
 			
-			if (keyText.length === 320) {
-				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key length OK, uploading..."; });
+			if (lengthOK && hashOK) {
+				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Key length OK, hash OK, uploading..."; });
 				var data = new Uint8Array(160);
 				
 				for (var i = 0; i < keyText.length; i+=2) {
@@ -1850,8 +1868,11 @@
 				xmlHttp.send(formData);
 				windowHashChange();
 			}
-			else {
-				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key length is invalid."; });
+			else if (!lengthOK) {
+				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key length is invalid; should be 320 hex characters, but is " + keyText.length + "."; });
+			}
+			else if (!hashOK) {
+				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key hash mismatch (key is invalid)."; });
 			}
 		}
 		function generateFilterEntry(title, dbval) {
