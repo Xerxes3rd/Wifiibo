@@ -53,7 +53,7 @@
 		}
 		
 		#upload-button {
-			display: inline-block;
+			display: none;
 			background-color: #f44242;
 		}
 		
@@ -207,6 +207,12 @@
 			display: block;
 			margin: 10px 0 10px;
 		}
+		
+		.filters .filter-options {
+			display: block;
+			margin: 10px 0 10px;
+			padding: 5px 10px 10px 10px;
+		}
 
 		.filters span{
 			font-size:14px;
@@ -308,7 +314,7 @@
 		.products-list .product-photo{
 			display: block;
 			text-align: center;
-			box-shadow : 0 0 20px 8px #f3f3f3 inset;
+			box-shadow: 0 0 20px 8px #f3f3f3 inset;
 			position: relative;
 			vertical-align: middle;
 			height: 200px; 
@@ -316,13 +322,31 @@
 			margin-bottom: 25px;
 			padding: 20px 0;
 			box-sizing: border-box;
-			
-			  max-width:100%;
-			  max-height:100%;
-			  //margin-top: -5px;
-			  //margin-bottom: 0px;
-			  margin-left: auto;
-			  margin-right: auto;
+			max-width:100%;
+			max-height:100%;
+			//margin-top: -5px;
+			//margin-bottom: 0px;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		
+		.products-list .product-photo-nodump{
+			display: block;
+			text-align: center;
+			box-shadow: 0 0 20px 8px #e3e3ff inset;
+			position: relative;
+			vertical-align: middle;
+			height: 200px; 
+			width: 250px;
+			margin-bottom: 25px;
+			padding: 20px 0;
+			box-sizing: border-box;
+			max-width:100%;
+			max-height:100%;
+			//margin-top: -5px;
+			//margin-bottom: 0px;
+			margin-left: auto;
+			margin-right: auto;
 		}
 
 		/* The product name */
@@ -767,17 +791,23 @@
 			</li>
 		`;
 		
-		const amiiboCard3 = (taginfo, title, img, imgTags, showButtons, filterable) => `
+		const amiiboCard3 = (taginfo, title, img, imgTags, showButtons, filterable, isdump) => `
 			<li ${(filterable) ? `class="data-index" data-index="${taginfo["filename"]}"` : ``}>
 				<div class="print-border">
 				<div class="extra-margin"></div>
-				${(img != null) ? `<div class="product-photo"><img src="${img}" ${imgTags} alt="Image not found"/></div>` : ``}
+				${(img != null) ? `<div class="product-photo` + (isdump ? `` : `-nodump`) + `"><img src="${img}" ${imgTags} alt="Image not found"/></div>` : ``}
 				<h2>${title}</h2>
 				<ul class="product-description">
 					${Object.keys(taginfo).map((name, val) => `<li filterKey="${name}" filterValue="${decodeURIComponent(taginfo[name]).replace(/\\u/g, '&#x')}"><span>${name.charAt(0).toUpperCase()+name.slice(1)}: </span>${decodeURIComponent(taginfo[name]).replace(/\\u/g, '&#x')}</li>\n`).join('')}
+					<li filterKey="isdump" filterValue="${isdump}" style="display:none"></li>
 				</ul>
-				${(showButtons) ? `
+				${(showButtons && isdump) ? `
 				<button onclick="window.history.replaceState({}, 'Write Tag', '?filename=${taginfo["filename"]}#writeamiibo'); windowHashChange();">Write Tag</button>
+				` : ``}
+				${(showButtons && !isdump) ? `
+				<button onclick="window.history.replaceState({}, 'Create Tag', '?id=${taginfo["id"]}#createamiibo'); windowHashChange();">Create Tag</button>
+				` : ``}
+				${(showButtons && isdump) ? `
 				<button onclick="window.location.href='?filename=${taginfo["filename"]}#deleteamiibo'">Delete</button>
 				<form style="display:inline-block" method="get" action="${"http://" + getHost() + taginfo["filename"]}">
 					<button style="width:60px" type="submit">\u2B73</button>
@@ -814,15 +844,24 @@
 		`;
 		
 		var pct = 0;
-		var webVer = "1.3";
+		var webVer = "1.35";
 
-		setStatusMessage('Connecting to ' + getWSConnURL() + ' for amiibo list...');
-		var connection = new WebSocket(getWSConnURL(), ['arduino']);
+		var connection;
 		var amiiboDBJSON;
 		var lastAmiiboList;
-		var amiiboJSONURL = 'https://raw.githubusercontent.com/N3evin/AmiiboAPI/master/database/amiibo.json';
+		var amiiboJSONURL =      'https://raw.githubusercontent.com/N3evin/AmiiboAPI/master/database/amiibo.json';
+		var amiiboImageBaseURL = 'https://raw.githubusercontent.com/N3evin/AmiiboAPI/master/images/icon_';
+		// Used whenever there's a pending PR for some updated imagery- replace BRANCHNAME with branch name
+		//var amiiboImageBaseURL = 'https://raw.githubusercontent.com/Xerxes3rd/AmiiboAPI/BRANCHNAME/images/icon_';
 		var forceRefresh = false;
 		var suppressRefresh = false;
+		var urlParams = {};
+		var filters = {};
+		
+		window.onhashchange = windowHashChange;
+		window.onpopstate = getURLParams;
+		
+		wsConnect();
 		
 		function getWSConnURL() {
 			return 'ws://'+getHost()+'/ws';
@@ -841,9 +880,8 @@
 		}
 		
 		function imageURLFromInfo(id) {
-			return 'https://raw.githubusercontent.com/N3evin/AmiiboAPI/master/images/icon_'+id.substr(0, 8).toLowerCase()+'-'+id.substr(8, 8).toLowerCase()+'.png';
-			// Used whenever there's a pending PR for some updated imagery- replace BRANCHNAME with branch name
-			//return 'https://raw.githubusercontent.com/Xerxes3rd/AmiiboAPI/BRANCHNAME/images/icon_'+id.substr(0, 8).toLowerCase()+'-'+id.substr(8, 8).toLowerCase()+'.png';
+			var startIndex = id.startsWith("0x") ? 2 : 0;
+			return amiiboImageBaseURL + id.substr(startIndex, 8).toLowerCase()+'-'+id.substr(startIndex+8, 8).toLowerCase()+'.png';
 		}
 		
 		function setStatusMessage(message) {
@@ -868,156 +906,176 @@
 				catch (e) {
 				}
 			}
+			else {
+				var id = getQueryID();
+				if (id != null && id.length > 0) {
+					var info = {};
+					info['id'] = id;
+					var newHTML = createAmiiboCard(info, 'style="height:100%;width:unset"', false, true, false);
+					
+					Array.prototype.forEach.call(document.getElementsByClassName("amiiboData"), (elem) => {
+						elem.innerHTML = newHTML;
+						elem.className += ' visible';
+					});
+				}
+			}
+			
 		}
 		
-		connection.onopen = function () {
-			setStatusMessage('Connected to ' + getWSConnURL() + ', requesting amiibo list.');
+		function wsConnect()
+		{
+			setStatusMessage('Connecting to ' + getWSConnURL() + ' for amiibo list...');
+			connection = new WebSocket(getWSConnURL(), ['arduino']);
 			
-			sendAmiiboFunc('listamiibochunk', true);
-			checkGetFileInfo();
-		};
-		connection.onerror = function (error) {
-			console.log('WebSocket Error ', error);
-		};
-		connection.onmessage = function (e) {
-			//console.log('Server: ', e.data);
-			var obj = JSON.parse(e.data);
-			if (obj["status"] != null) {
-				console.log("WS Status: " + obj["status"]);
-				//document.getElementById("status").innerHTML = obj["status"];
-				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = obj["status"]; });
-			}
-			if (obj["progress"] != null) {
-				console.log("WS Progress: " + obj["progress"]);
-				setProgress(obj["progress"]);
-			}
-			if (obj["taginfo"] != null) {
-				console.log("WS TagInfo: " + obj["taginfo"]);
-				var newHTML = createAmiiboCard(obj["taginfo"], 'style="height:100%;width:unset"', false);
+			connection.onopen = function () {
+				setStatusMessage('Connected to ' + getWSConnURL() + ', requesting amiibo list.');
 				
-				Array.prototype.forEach.call(document.getElementsByClassName("amiiboData"), (elem) => {
-					elem.innerHTML = newHTML;
-					elem.className += ' visible';
-				});
-				
-				Array.prototype.forEach.call(document.getElementsByClassName("saveFile"), (elem) => {
-					createSaveFileHTML(elem, '/' + getAmiiboMainName(obj["taginfo"]) + '.bin');
-					elem.className += ' visible';
-				});
-				//result.className += ' visible';
-				//document.getElementById('status').innerHTML += "<br/>" + JSON.stringify(obj["taginfo"], null, "<br>");
-			}
-			if (obj["tagInfoList"] != null) {
-				getAmiiboJSONDB();
-				var page = document.getElementsByClassName('all-products')[0];
-				lastAmiiboList = obj["tagInfoList"];
-				processAmiiboList(obj["tagInfoList"]);
-				if (page.className.indexOf('visible') === -1) {
-					page.className += ' visible';
+				sendAmiiboFunc('listamiibochunk', true);
+				checkGetFileInfo();
+			};
+			connection.onerror = function (error) {
+				console.log('WebSocket Error ', error);
+			};
+			connection.onmessage = function (e) {
+				//console.log('Server: ', e.data);
+				var obj = JSON.parse(e.data);
+				if (obj["status"] != null) {
+					console.log("WS Status: " + obj["status"]);
+					//document.getElementById("status").innerHTML = obj["status"];
+					Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = obj["status"]; });
 				}
-			}
-			if (obj["tagInfoList_Chunk"] != null) {
-				var listRoot = "tagInfoList_Chunk";
-				if (obj["start"]) {
-					getAmiiboJSONDB();
-					lastAmiiboList = {};
-					lastAmiiboList["start"] = true;
-					lastAmiiboList[listRoot] = new Array();
+				if (obj["progress"] != null) {
+					console.log("WS Progress: " + obj["progress"]);
+					setProgress(obj["progress"]);
 				}
-				lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
-				setStatusMessage("Received chunk info for " + lastAmiiboList[listRoot].length + " amiibos...");
-				if (obj["end"]) {
-					lastAmiiboList["end"] = true;
-					setStatusMessage("");
-					processAmiiboList(lastAmiiboList[listRoot]);
-					var page = document.getElementsByClassName('all-products')[0];
-					if (page.className.indexOf('visible') === -1) {
-						page.className += ' visible';
-					}
-				}
-				else {
-					setProgress(0);
-					console.log('listamiibochunk');
-					var lastFilename = obj[listRoot][obj[listRoot].length - 1]["filename"];
-					var msg = { "func":"listamiibochunk", "lastFilename":lastFilename };
-					connection.send(JSON.stringify(msg));
-					console.log("Test");
-				}
-			}
-			if (obj["tagInfoList_Async"] != null) {
-				var listRoot = "tagInfoList_Async";
-				if (obj["start"]) {
-					getAmiiboJSONDB();
-					lastAmiiboList = {};
-					lastAmiiboList["start"] = true;
-					lastAmiiboList[listRoot] = new Array();
-				}
-				lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
-				setStatusMessage("Received async info for " + lastAmiiboList[listRoot].length + " amiibos...");
-				if (obj["end"]) {
-					lastAmiiboList["end"] = true;
-					setStatusMessage("");
-					processAmiiboList(lastAmiiboList[listRoot]);
-					var page = document.getElementsByClassName('all-products')[0];
-					if (page.className.indexOf('visible') === -1) {
-						page.className += ' visible';
-					}
-				}
-			}
-
-			if (obj["saveAmiibo"] != null) {
-				if (obj["saveAmiibo"] >= 0) {
-					Array.prototype.forEach.call(document.getElementsByClassName("saveFile"), (elem) => {
-						elem.innerHTML = "";
-						elem.classList.remove('visible');
+				if (obj["taginfo"] != null) {
+					console.log("WS TagInfo: " + obj["taginfo"]);
+					var newHTML = createAmiiboCard(obj["taginfo"], 'style="height:100%;width:unset"', false, true);
+					
+					Array.prototype.forEach.call(document.getElementsByClassName("amiiboData"), (elem) => {
+						elem.innerHTML = newHTML;
+						elem.className += ' visible';
 					});
-					forceRefresh = true;
+					
+					Array.prototype.forEach.call(document.getElementsByClassName("saveFile"), (elem) => {
+						createSaveFileHTML(elem, '/' + getAmiiboMainName(obj["taginfo"]) + '.bin');
+						elem.className += ' visible';
+					});
+					//result.className += ' visible';
+					//document.getElementById('status').innerHTML += "<br/>" + JSON.stringify(obj["taginfo"], null, "<br>");
 				}
-			}
-			if (obj["invalidkey"] != null) {
-				document.getElementById('upload-button').style.display = "inline-block";
-			}
-			if (obj["validkey"] != null) {
-				document.getElementById('upload-button').style.display = "none";
-			}
-			if (obj["wifistatus"] != null) {
-				console.log("Wifi Status: " + obj["wifistatus"]);
-				if (obj["scanresults"] != null) {
-					Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Scan complete."; });
-					var elem = document.getElementById('scanresults');
-					if (elem != null) {
-						elem.innerHTML = createWifiInfoTableHTML(obj["scanresults"]);
+				if (obj["tagInfoList"] != null) {
+					getAmiiboJSONDB();
+					var page = document.getElementsByClassName('all-products')[0];
+					lastAmiiboList = obj["tagInfoList"];
+					processAmiiboList(obj["tagInfoList"]);
+					if (page.className.indexOf('visible') === -1) {
+						page.className += ' visible';
 					}
 				}
-			}
-			if (obj["serverip"] != null) {
-				var elem = document.getElementById('alturl');
-				if (elem != null) {
-					var loc = document.location;
-					var newURL = loc.protocol + '//' + obj["serverip"] + loc.pathname;
-					elem.innerHTML = '<a href="' + newURL + '">IP: ' + obj["serverip"] + '</a>';
-					elem.style.display = "inline-block";
+				if (obj["tagInfoList_Chunk"] != null) {
+					var listRoot = "tagInfoList_Chunk";
+					if (obj["start"]) {
+						getAmiiboJSONDB();
+						lastAmiiboList = {};
+						lastAmiiboList["start"] = true;
+						lastAmiiboList[listRoot] = new Array();
+					}
+					lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
+					setStatusMessage("Received chunk info for " + lastAmiiboList[listRoot].length + " amiibos...");
+					if (obj["end"]) {
+						lastAmiiboList["end"] = true;
+						setStatusMessage("");
+						processAmiiboList(lastAmiiboList[listRoot]);
+						var page = document.getElementsByClassName('all-products')[0];
+						if (page.className.indexOf('visible') === -1) {
+							page.className += ' visible';
+						}
+					}
+					else {
+						setProgress(0);
+						console.log('listamiibochunk');
+						var lastFilename = obj[listRoot][obj[listRoot].length - 1]["filename"];
+						var msg = { "func":"listamiibochunk", "lastFilename":lastFilename };
+						connection.send(JSON.stringify(msg));
+						console.log("Test");
+					}
 				}
-			}
-			if (obj["version"] != null) {
-				var elem = document.getElementById('version');
-				if (elem != null) {
-					var verStr = "v" + obj["version"];
-					if (obj["version"] != webVer)
-						verStr += '/' + webVer;
-					elem.innerHTML = verStr;
-					elem.style.display = "inline-block";
+				if (obj["tagInfoList_Async"] != null) {
+					var listRoot = "tagInfoList_Async";
+					if (obj["start"]) {
+						getAmiiboJSONDB();
+						lastAmiiboList = {};
+						lastAmiiboList["start"] = true;
+						lastAmiiboList[listRoot] = new Array();
+					}
+					lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
+					setStatusMessage("Received async info for " + lastAmiiboList[listRoot].length + " amiibos...");
+					if (obj["end"]) {
+						lastAmiiboList["end"] = true;
+						setStatusMessage("");
+						processAmiiboList(lastAmiiboList[listRoot]);
+						var page = document.getElementsByClassName('all-products')[0];
+						if (page.className.indexOf('visible') === -1) {
+							page.className += ' visible';
+						}
+					}
 				}
-			}
-			if (obj["nfcversion"] != null) {
-				var elem = document.getElementById('nfcversion');
-				if (elem != null) {
-					var verStr = "" + obj["nfcversion"];
-					elem.innerHTML = verStr;
-					elem.style.display = "inline-block";
+
+				if (obj["saveAmiibo"] != null) {
+					if (obj["saveAmiibo"] >= 0) {
+						Array.prototype.forEach.call(document.getElementsByClassName("saveFile"), (elem) => {
+							elem.innerHTML = "";
+							elem.classList.remove('visible');
+						});
+						forceRefresh = true;
+					}
 				}
-			}
-		};
+				if (obj["invalidkey"] != null) {
+					document.getElementById('upload-button').style.display = "inline-block";
+				}
+				if (obj["validkey"] != null) {
+					document.getElementById('upload-button').style.display = "none";
+				}
+				if (obj["wifistatus"] != null) {
+					console.log("Wifi Status: " + obj["wifistatus"]);
+					if (obj["scanresults"] != null) {
+						Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Scan complete."; });
+						var elem = document.getElementById('scanresults');
+						if (elem != null) {
+							elem.innerHTML = createWifiInfoTableHTML(obj["scanresults"]);
+						}
+					}
+				}
+				if (obj["serverip"] != null) {
+					var elem = document.getElementById('alturl');
+					if (elem != null) {
+						var loc = document.location;
+						var newURL = loc.protocol + '//' + obj["serverip"] + loc.pathname;
+						elem.innerHTML = '<a href="' + newURL + '">IP: ' + obj["serverip"] + '</a>';
+						elem.style.display = "inline-block";
+					}
+				}
+				if (obj["version"] != null) {
+					var elem = document.getElementById('version');
+					if (elem != null) {
+						var verStr = "v" + obj["version"];
+						if (obj["version"] != webVer)
+							verStr += '/' + webVer;
+						elem.innerHTML = verStr;
+						elem.style.display = "inline-block";
+					}
+				}
+				if (obj["nfcversion"] != null) {
+					var elem = document.getElementById('nfcversion');
+					if (elem != null) {
+						var verStr = "" + obj["nfcversion"];
+						elem.innerHTML = verStr;
+						elem.style.display = "inline-block";
+					}
+				}
+			};
+		}
 		
 		function createWifiInfoTableHTML(infoJSON) {
 			console.log(infoJSON);
@@ -1052,9 +1110,6 @@
 		function setWifiSSIDField(ssid) {
 			document.getElementById("wifissid").value = ssid;
 		}
-		
-		var filters = {};
-
 
 		//	Event handlers for frontend navigation
 		//	Checkbox filtering
@@ -1112,6 +1167,7 @@
 		}
 		function createQueryHash(filters){
 			window.location.hash = getQueryHash(filters);
+			windowHashChange();
 			// Here we check if filters isn't empty.
 			//if (Object.keys(filters).length > 0){
 			//	// Stringify the object via JSON.stringify and write it after the '#filter' keyword.
@@ -1184,10 +1240,16 @@
 				},
 				
 				'#writeamiibo': function() {
-					// Grab the string after the '#filter/' keyword. Call the filtering function.
 					filename = url.split('#writeamiibo/')[1];
 					suppressRefresh = true;
 					renderSinglePage('write-amiibo', filename);
+					//checkGetFileInfo();
+				},
+				
+				'#createamiibo': function() {
+					id = url.split('#createamiibo/')[1];
+					suppressRefresh = true;
+					renderSinglePage('create-amiibo', id);
 					//checkGetFileInfo();
 				},
 				
@@ -1262,8 +1324,8 @@
 		}
 		
 		function renderFilterResults(filters){
-			if (!lastAmiiboList || !lastAmiiboList["end"])
-				return;
+			//if (!lastAmiiboList || !lastAmiiboList["end"]) return;
+			if (amiiboDBJSON == null) return;
 			var numDisplayed = 0;
 			var total = 0;
 			
@@ -1325,13 +1387,15 @@
 					if (this.readyState === XMLHttpRequest.DONE) {
 					  if (this.status === 200) {
 						amiiboDBJSON = JSON.parse(this.responseText);
-						if (lastAmiiboList != null) {
-							if (lastAmiiboList["end"]) {
+						//if (lastAmiiboList != null) {
+						//	if (lastAmiiboList["end"]) {
 								processAmiiboList(lastAmiiboList);
-							}
-						}
+						//	}
+						//}
 						console.log("Parsed Amiibo JSON DB.");
 						generateFilters();
+						createQueryHash(filters);
+						renderAmiiboListPage();
 					  } else {
 						// handle error
 					  }
@@ -1418,23 +1482,35 @@
 					if (hexSeries in amiiboDBJSON['amiibo_series']) {
 						info['amiibo Series'] = amiiboDBJSON['amiibo_series'][hexSeries];
 					}
+					else {
+						info['amiibo Series'] = "?";
+					}
 
 					if (hexCharacter in amiiboDBJSON['characters']) {
 						info['Character'] = amiiboDBJSON['characters'][hexCharacter];
+					}
+					else {
+						info['Character'] = "?";
 					}
 					
 					if (hexGameSeries in amiiboDBJSON['game_series']) {
 						info['Game Series'] = amiiboDBJSON['game_series'][hexGameSeries];
 					}
+					else {
+						info['Game Series'] = "?";
+					}
 					
 					if (hexForm in amiiboDBJSON['types']) {
 						info['Form'] = amiiboDBJSON['types'][hexForm];
+					}
+					else {
+						info['Form'] = "?";
 					}
 				}
 			}
 		}
 		
-		function createAmiiboCard(info, imgTags, showButton, filterable)
+		function createAmiiboCard(info, imgTags, showButton, filterable, isdump)
 		{
 			var mainName = "";
 			var imgURL = "";
@@ -1448,7 +1524,7 @@
 			if (urlParams["print"])
 				return amiiboCardPrint(info, filterable);
 			else
-				return amiiboCard3(info, mainName, imgURL, imgTags, showButton, filterable);
+				return amiiboCard3(info, mainName, imgURL, imgTags, showButton, filterable, isdump);
 		}
 		
 		function renderAmiiboListPage(data){
@@ -1544,15 +1620,34 @@
 			link.href = document.getElementById(canvasId).toDataURL();
 			link.download = filename;
 		}
+		var showNonDumps = false; // Temporary until everything's tested
 		function processAmiiboList(tagInfo) {
 			var out = "";
 			var data = [];
+			var totalDumps = 0;
 			
-			for(var i = 0; i < tagInfo.length; i++) {
-				//console.log("Processing index " + i);
-				var info = tagInfo[i];
-				getAmiiboData(info);
-				data.push(info);
+			if (tagInfo != null) {
+				for(var i = 0; i < tagInfo.length; i++) {
+					//console.log("Processing index " + i);
+					var info = tagInfo[i];
+					info['isdump'] = true;
+					getAmiiboData(info);
+					data.push(info);
+				}
+				totalDumps = tagInfo.length;
+			}
+				
+			var tagInfos = Object.keys(amiiboDBJSON["amiibos"]);
+			console.log("amiiboDB: total " + tagInfos.length + " amiibos.");
+			
+			if (showNonDumps) {			
+				for (var i = 0; i < tagInfos.length; i++) {
+					var info = {};
+					info['id'] = tagInfos[i].replace("0x", "").toUpperCase();
+					info['isdump'] = false;
+					getAmiiboData(info);
+					data.push(info);
+				}
 			}
 			
 			data.sort(compareAmiibo);
@@ -1564,7 +1659,9 @@
 			}
 			
 			for (var i = 0; i < data.length; i++) {
-				out += createAmiiboCard(data[i], null, true, true);
+				isdump = data[i]['isdump'];
+				delete data[i]['isdump'];
+				out += createAmiiboCard(data[i], null, true, true, isdump);
 			}
 			
 			if (urlParams["print"]) {
@@ -1573,7 +1670,7 @@
 			}
 			
 			document.getElementById("amiiboList").innerHTML = out;
-			document.getElementById("amiiboCount").innerHTML = "Total: " + tagInfo.length + " amiibos.";
+			document.getElementById("amiiboCount").innerHTML = "Total: " + totalDumps + " amiibos.";
 			
 			if (urlParams["print"]) {
 				Array.prototype.forEach.call(document.getElementsByClassName("print-canvas"), (elem) => {
@@ -1623,7 +1720,7 @@
 				});
 			}
 			
-			if (Object.keys(filters).length > 0){
+			if ((filters != null) && (Object.keys(filters).length > 0)){
 				console.log("Filtering results.");
 				renderFilterResults(filters);
 			}
@@ -1695,6 +1792,22 @@
 				connection.send(JSON.stringify(msg));
 			}
 		}
+		
+		function sendAmiiboFuncWithID(funcName, clearData){
+			var search = parseQuery(window.location.search);
+			var id = search["id"];
+			
+			setProgress(0);
+			if (clearData === true) {
+				Array.prototype.forEach.call(document.getElementsByClassName("amiiboData"), (elem) => { elem.innerHTML = ""; });
+			}
+			Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = ""; });
+			if ((id != null) && (id.length > 0)) {
+				console.log(funcName);
+				var msg = { "func":funcName, "id":id };
+				connection.send(JSON.stringify(msg));
+			}
+		}
 		/* Toggle between adding and removing the "responsive" class to topnav when the user clicks on the icon */
 		function myFunction() {
 			var x = document.getElementById("myTopnav");
@@ -1707,6 +1820,10 @@
 		function getQueryFilename() {
 			var search = parseQuery(window.location.search);
 			return search["filename"];
+		}
+		function getQueryID() {
+			var search = parseQuery(window.location.search);
+			return search["id"];
 		}
 		function parseQuery(search) {
 			var args = search.substring(1).split('&');
@@ -1875,6 +1992,30 @@
 				Array.prototype.forEach.call(document.getElementsByClassName("statusInfo"), (elem) => { elem.innerHTML = "Error: key hash mismatch (key is invalid)."; });
 			}
 		}
+		function generateDumpFilter() {
+			var html = "";
+			var checked = "";
+			var Title = "Show Only Local Dumps";
+			var val = "true";
+			html += '<div class="filter-criteria">';
+			//html += '<span></span>';
+			
+			var currentChecks = null;
+			
+			if ((filters['localdumpsonly'] != null) && (filters['localdumpsonly'].length > 0)) {
+				if (Object.values(filters['localdumpsonly'])[0].toLowerCase() == "true") {
+					checked = "checked";
+				}
+				console.log("generateDumpFilter: Matched filter.");
+			}
+			
+			//checked = "checked";
+			
+			html+= '<label><input class="filtercheckbox" type="checkbox" name="localdumpsonly" value="'+val+'" onclick="filtercheckboxClick(this)" '+checked+'>'+Title+'</label>'
+			
+			html += '</div>';
+			return html;
+		}
 		function generateFilterEntry(title, dbval) {
 			var lookup = {}; // Avoids duplicates
 			var html = "";
@@ -1888,7 +2029,7 @@
 			
 			if (filters[title] != null) {
 				currentChecks = Object.values(filters[title]);
-				console.log("Matched filter.");
+				console.log("generateFilterEntry: Matched filter.");
 			}
 			
 			for(i in foundDBVal) {
@@ -1915,6 +2056,7 @@
 		function generateFilters() {
 			var html = "";
 			html += '<button onclick="clearFilters()">Clear filters</button>';
+			//html += generateDumpFilter();
 			html += generateFilterEntry('amiibo Series', 'amiibo_series');
 			html += generateFilterEntry('Game Series', 'game_series');
 			html += generateFilterEntry('Form', 'types');
@@ -1930,6 +2072,12 @@
 				closemodal(e);
 			});
 			document.getElementById('write-amiibo').innerHTML = singleProductPageHTML("Write amiibo", "write-amiibo", "sendAmiiboFuncWithFilename('writenfc', false)", "sendAmiiboFunc('cancelwrite', false)");
+
+			document.getElementById('create-amiibo').addEventListener("click", function(e) {
+				suppressRefresh = true;
+				closemodal(e);
+			});
+			document.getElementById('create-amiibo').innerHTML = singleProductPageHTML("Create amiibo", "create-amiibo", "sendAmiiboFuncWithID('createamiibo', false)", "sendAmiiboFunc('cancelwrite', false)");
 			
 			document.getElementById('delete-amiibo').addEventListener("click", closemodal);
 			document.getElementById('delete-amiibo').innerHTML = singleProductPageHTML("Delete amiibo", "delete-amiibo", "sendAmiiboFuncWithFilename('deleteamiibo', true)", "closemodal(null, true)");
@@ -1947,6 +2095,7 @@
 			document.getElementById("main").style.marginLeft = "0";
 		}
 		function onBodyLoad() {
+			getURLParams();
 			windowHashChange();
 			getAmiiboJSONDB();
 
@@ -2004,11 +2153,7 @@
 				insertParam("print", "true");
 			}
 		}
-		window.onhashchange = windowHashChange;
-		//windowHashChange();
-		
-		var urlParams;
-		(window.onpopstate = function () {
+		function getURLParams() {
 			var match,
 				pl     = /\+/g,  // Regex for replacing addition symbol with a space
 				search = /([^&=]+)=?([^&]*)/g,
@@ -2018,7 +2163,18 @@
 			urlParams = {};
 			while (match = search.exec(query))
 			   urlParams[decode(match[1])] = decode(match[2]);
-		})();
+		}
+		//(window.onpopstate = function () {
+		//	var match,
+		//		pl     = /\+/g,  // Regex for replacing addition symbol with a space
+		//		search = /([^&=]+)=?([^&]*)/g,
+		//		decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+		//		query  = window.location.search.substring(1);
+        //
+		//	urlParams = {};
+		//	while (match = search.exec(query))
+		//	   urlParams[decode(match[1])] = decode(match[2]);
+		//})();
 		</script>
 	</head>
 
@@ -2040,14 +2196,14 @@
 	
 	<div class="sidenav" id="mySidenav">
 		<a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-		<div class="filters" style="margin-bottom: 10px">
-			<form id="filterForm"></form>
-		</div>
-		<div class="filters">
-			<div class="filter-criteria">
-				<span>Other Settings</span>
+		<div class="filters" style="margin-bottom: 10px; padding: 10px">
+			<div class="filter-options" style="margin: 0px;">
+				<span style="margin-top: 5px;">View Options</span>
 				<label><input type="checkbox" id="toggleprint" name="toggleprint" value="toggleprint" onclick="toggleprint(this)">Print View</label>
 			</div>
+		</div>
+		<div class="filters" style="margin-bottom: 60px">
+			<form id="filterForm"></form>
 		</div>
 	</div>
 
@@ -2059,6 +2215,7 @@
 
 		<div class="single-product save-file page" id="read-amiibo"></div>
 		<div class="single-product page" id="write-amiibo"></div>
+		<div class="single-product page" id="create-amiibo"></div>
 		<div class="single-product page" id="delete-amiibo"></div>
 		<div class="single-product page" id="upload-amiibo">
 			<div class="overlay"></div>

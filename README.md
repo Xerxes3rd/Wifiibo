@@ -52,18 +52,16 @@ Wifiibo depends on a number of additional Arduino libraries (which are needed if
 * [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
 * [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
 * [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
+  * Use version 5; version 6 has a new API that is not yet supported
 * [Adafruit_PN532](https://github.com/adafruit/Adafruit-PN532)
-  * A modified version of this library, Adafruit_PN532Ex, is included with Wifiibo
+  * A modified version of this library, Adafruit_PN532Ex, is included with Wifiibo, so you don't need to download this library separately
 * [rfid](https://github.com/miguelbalboa/rfid)
-  * A modified version of this library, MFRC522Ex, is included with Wifiibo
+  * A modified version of this library, MFRC522Ex, is included with Wifiibo, so you don't need to download this library separately
 * [mbedtls](https://tls.mbed.org/)
-  * A modified version of this library is included with Wifiibo
+  * A modified version of this library is included with Wifiibo, so you don't need to download this library separately
   
 ### Compiling
-In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 1.3.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
-
-### Updating
-If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
+In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 2.5.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
 
 ## Using Wifiibo
 When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up its own hotspot called "Wifiibo."  Connect to the hotspot using your phone or computer, then open a web browser and go to http://192.168.4.1 to access Wifiibo.  Click on the "Configure Wifi" button, enter your Wifi network credentials, and click submit.
@@ -74,6 +72,9 @@ In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encry
 
 Using Wifiibo is fairly straightforward.  amiibo data is pulled from the excellent [amiibo API](https://github.com/N3evin/AmiiboAPI/) by @N3vin.
 In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
+
+### Updating
+If new software releases are made, they will show up in the "releases" folder.  To easily update your Wifiibo, download the latest release binary, then go to http://wifiibo.local/update.  Select the "bin" file you downloaded, and click the "Update" button.  When updating is complete, the page will change to "OK."  Go back to http://wifiibo.local and verify that the version number in the upper-right corner of the screen has been updated.
 
 ## Enclosure
 If you have access to a 3D printer, you can print an enclosure for Wifiibo.  The enclosure is in two halves, which press-fit together.  The lid piece will need to be printed upside-down and requires support material for the "inset" on the top.  The Wemos D1 Mini board can be press-fit into the base, and the NFC board can be screwed into the standoffs in the lid.  I made the standoffs slightly smaller than the #4-40 screws I used, so I tapped the mounts using an inexpensive tapping tool.  Alternatively, there's another lid version that allows the NFC board to be pressfit into the lid.

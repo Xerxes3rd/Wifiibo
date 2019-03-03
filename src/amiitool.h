@@ -23,10 +23,12 @@
 #define AMIIBO_STATIC_LOCK_PAGE 2
 
 // These offsets are in the decrypted data
-#define AMIIBO_NAME_OFFSET 			0x003C		// Offset in decrypted data
-#define AMIIBO_DEC_CHARDATA_OFFSET 	0x01DC		// Offset in decrypted data
-#define AMIIBO_ENC_CHARDATA_OFFSET	0x0054		// Offset in encrypted data
+#define AMIIBO_NAME_OFFSET 				0x003C		// Offset in decrypted data
+#define AMIIBO_DEC_CHARDATA_OFFSET 		0x01DC		// Offset in decrypted data
+#define AMIIBO_ENC_CHARDATA_OFFSET		0x0054		// Offset in encrypted data
 #define AMIIBO_DEC_OWNERMII_NAME_OFFSET	0x0066
+#define AMIIBO_DEC_DATA_OFFSET			0x002C
+#define AMIIBO_DEC_FLAGS_BYTE_OFFSET	(AMIIBO_DEC_DATA_OFFSET + 0x0000)
 #define AMIIBO_CHARNUM_MASK			0xFF
 #define AMIIBO_HEAD_LEN				4
 #define AMIIBO_TAIL_LEN				4
@@ -58,9 +60,6 @@ class amiitool
 
 		uint8_t original[NTAG215_SIZE];
 		uint8_t modified[NFC3D_AMIIBO_SIZE];
-
-		uint8_t plain_base[NFC3D_AMIIBO_SIZE];
-		uint8_t plain_save[NFC3D_AMIIBO_SIZE];
 		
 		amiiboInfoStruct amiiboInfo;
 		uint32_t nfcVersionData;
@@ -97,6 +96,9 @@ class amiitool
 		void cancelNFCWrite();
 		NFCInterface* getNFC();
 		bool isNFCStarted();
+		void generateBlankAmiibo(uint8_t * amiiboID);
+		void generateRandomUID(uint8_t * uid);
+		bool isCardRewritable();
 		
 		static void printData(uint8_t *data, int len, int valsPerCol, bool headers, bool formatForC);
 		static void readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, bool byteSwap);

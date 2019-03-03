@@ -43,8 +43,11 @@ MFRC522Ex mfrc522(D2, D3);
 
 volatile bool triggerReadNFC = false;
 volatile bool triggerWriteNFC = false;
+volatile bool triggerCreateNFC = false;
 volatile bool triggerDummyWriteNFC = false;
 volatile bool triggerListAmiibo = false;
+const uint8_t NFCIDLen = 8;
+uint8_t createNFCID[NFCIDLen];
 amiitool atool((char*)keyfilename);
 
 char newWifiSSID[32] = "";
@@ -63,7 +66,7 @@ volatile bool shouldReboot = false;
 
 const int MAX_COUNT_PER_MESSAGE = 25;
 
-const char* versionStr = "1.3";
+const char* versionStr = "1.35";
 const uint32_t nfcVersionStrLen = 64;
 char nfcVersionStr[nfcVersionStrLen];
 
@@ -71,6 +74,28 @@ char nfcVersionStr[nfcVersionStrLen];
 AsyncWebServer server(80);
 AsyncWebSocket websocket("/ws");
 AsyncEventSource events("/events");
+
+// MD5 Stuff documented for future reference
+// MD5 Functions
+// void begin(void);
+// void add(uint8_t * data, uint16_t len);
+// void add(const char * data){ add((uint8_t*)data, strlen(data)); }
+// void add(char * data){ add((const char*)data); }
+// void add(String data){ add(data.c_str()); }
+// void addHexString(const char * data);
+// void addHexString(char * data){ addHexString((const char*)data); }
+// void addHexString(String data){ addHexString(data.c_str()); }
+// bool addStream(Stream & stream, int len);
+// void calculate(void);
+// void getBytes(uint8_t * output);
+// void getChars(char * output);
+
+// MD5 Example
+// MD5Builder md5;
+// md5.begin();
+// md5.add("blah blah blah blah blah blah");
+// md5.calculate();
+// Serial.println(md5.toString()); // can be getChars() to getBytes() too. (16 chars) .. see above
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
   if(type == WS_EVT_CONNECT){
@@ -221,52 +246,73 @@ void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, Aws
   {
     if (root.containsKey("func"))
     {
-      if (!strncmp("readnfc", root["func"], 7))
+      if (!strcmp("readnfc", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Triggering NFC read");
         triggerReadNFC = true;
       }
-      else if (!strncmp("cancelread", root["func"], 10))
+      else if (!strcmp("cancelread", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Canceling NFC read");
         atool.cancelNFCRead();
       }
-      else if (!strncmp("writenfc", root["func"], 8))
+      else if (!strcmp("writenfc", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Triggering NFC write");
         triggerWriteNFC = true;
       }
-      else if (!strncmp("cancelwrite", root["func"], 11))
+      else if (!strcmp("createamiibo", root["func"]))
+      {
+        if (strlen(root["id"]) == NFCIDLen * 2)
+        {
+          DBG_OUTPUT_PORT.println("Triggering NFC create");
+          for (size_t count = 0; count < NFCIDLen; count++) {
+            sscanf((const char*)(root["id"])+(count*2), "%2hhx", &createNFCID[count]);
+          }
+          
+          DBG_OUTPUT_PORT.print("Create amiibo: ID=0x");
+          for(size_t count = 0; count < NFCIDLen; count++)
+            DBG_OUTPUT_PORT.printf("%02x", createNFCID[count]);
+          DBG_OUTPUT_PORT.println("");
+          
+          triggerCreateNFC = true;
+        }
+        else {
+          DBG_OUTPUT_PORT.print("Error in NFC create: ID length is ");
+          DBG_OUTPUT_PORT.println(strlen(root["id"]));
+        }
+      }
+      else if (!strcmp("cancelwrite", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Canceling NFC write");
         atool.cancelNFCWrite();
       }
-      else if (!strncmp("dummywritenfc", root["func"], 13))
+      else if (!strcmp("dummywritenfc", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Triggering dummy NFC write");
         triggerDummyWriteNFC = true;
       }
-      else if (!strncmp("getfileinfo", root["func"], 11))
+      else if (!strcmp("getfileinfo", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Get file info");
         getAmiiboInfo(root["filename"]);
       }
-      else if (!strncmp("deleteamiibo", root["func"], 12))
+      else if (!strcmp("deleteamiibo", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Delete amiibo");
         deleteFile(root["filename"]);
       }
-      else if (!strncmp("saveamiibo", root["func"], 10))
+      else if (!strcmp("saveamiibo", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Save amiibo");
         saveAmiibo(root["filename"]);
       }
-	  else if (!strncmp("listamiiboasync", root["func"], 15))
+	  else if (!strcmp("listamiiboasync", root["func"]))
 	  {
 		DBG_OUTPUT_PORT.println("List amiibo (async)");
 		triggerListAmiibo = true;
 	  }
-	  else if (!strncmp("listamiibochunk", root["func"], 15))
+	  else if (!strcmp("listamiibochunk", root["func"]))
 	  {
 		DBG_OUTPUT_PORT.println("List amiibo (chunk)");
         String outStr;
@@ -274,14 +320,14 @@ void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, Aws
         getAmiiboList_Chunk(&lastFilename, &outStr, MAX_COUNT_PER_MESSAGE, root.containsKey("printFiles"));
         client->text(outStr);
 	  }
-      else if (!strncmp("listamiibo", root["func"], 10))
+      else if (!strcmp("listamiibo", root["func"]))
       {
         DBG_OUTPUT_PORT.println("List amiibo");
         String outStr;
         getAmiiboList(&outStr);
         client->text(outStr);
       }
-      else if (!strncmp("configurewifi", root["func"], 13))
+      else if (!strcmp("configurewifi", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Configure WiFi");
         if (root.containsKey("ssid")) {
@@ -292,7 +338,7 @@ void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, Aws
           reconnectWifi = true;
         }
       }
-      else if (!strncmp("triggerScanWifi", root["func"], 13))
+      else if (!strcmp("triggerScanWifi", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Scan WiFi");
         scanWifi = true;
@@ -418,6 +464,18 @@ void handleNFC()
       //sendTagInfo();
     }
   }
+  else if (triggerCreateNFC) {
+    triggerCreateNFC = false;
+    DBG_OUTPUT_PORT.printf("Creating NFC tag...");
+    atool.generateBlankAmiibo(createNFCID);
+    bool result = atool.writeTag(sendStatusCharArray, updateProgress);
+    //bool result = dummyWriteTag_PN532();
+    if (result)
+    {
+      sendStatusCharArray("Tag successfully created & written.");
+      //sendTagInfo();
+    }
+  }
   else if (triggerDummyWriteNFC)
   {
     triggerDummyWriteNFC = false;
@@ -446,6 +504,7 @@ void handleNFC()
 
   triggerReadNFC = false;
   triggerWriteNFC = false;
+  triggerCreateNFC = false;
   triggerDummyWriteNFC = false;
 }
 
@@ -1055,6 +1114,7 @@ void setup(){
         }
         DBG_OUTPUT_PORT.printf("handleFileUpload Size: %u\n", fileSize);
         fileSize = 0;
+        DBG_OUTPUT_PORT.printf("Finished upload.\n");
 
         if (isKey) {
           if (atool.tryLoadKey()) {
@@ -1194,6 +1254,7 @@ void setup(){
 
   sprintf(nfcVersionStr, "NFC Error");
   bool initSuccess = false;
+  //mfrc522.PCD_SetAntennaGain(7);
   initSuccess = atool.initNFC(&pn532);
   if (!initSuccess)
     initSuccess = atool.initNFC(&mfrc522);

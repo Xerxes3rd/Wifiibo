@@ -234,6 +234,52 @@ int amiitool::loadFileSPIFFS(fs::File *f, bool lenient)
 }
 #endif
 
+void amiitool::generateBlankAmiibo(uint8_t * amiiboID)
+{
+	fileloaded = false;
+	memset(modified, 0, NFC3D_AMIIBO_SIZE);
+	
+    const uint16_t InternalByte = 0x0001;
+	modified[InternalByte] = 0x48;
+
+	const uint16_t CCLoc = 0x0004;
+	uint8_t ccBytes[4] = { 0xF1, 0x10, 0xFF, 0xEE };
+	memcpy(modified+0x0004, ccBytes, 4);
+
+	const uint16_t A5Loc = 0x0028;
+	modified[A5Loc] = 0xA5;
+
+	const uint16_t CFG01Loc = 0x020C;
+	uint8_t cfg01Bytes[8] = { 0x00, 0x00, 0x00, 0x04, 0x5F, 0x00, 0x00, 0x00 };
+	memcpy(modified+0x020C, cfg01Bytes, 8);
+
+	const uint16_t StaticLockLoc = 0x0002;
+	uint8_t staticLockBytes[2] = { 0x0F, 0xE0 };
+	memcpy(modified+0x0002, staticLockBytes, 2);
+
+	const uint16_t DynLockLoc = 0x0208;
+	uint8_t dynLockBytes[4] = { 0x01, 0x00, 0x0F, 0xBD };
+	memcpy(modified+0x0208, dynLockBytes, 4);
+	
+	const uint16_t AmiiboIDLoc = 0x01DC;
+	memcpy(modified+0x01DC, amiiboID, 8);
+	
+	fileloaded = true;
+}
+
+void amiitool::generateRandomUID(uint8_t * uid)
+{
+	uid[0] = 0x04; // Manufacturer code for NXP
+	
+	for (int i = 1; i < 7; i++)
+	{
+		uid[i] = random(0, 256);
+	}
+	
+	if (uid[4] == 0x88) // 0x88 is reserved, and indicates a 7-byte UID
+		uid[4] = 0x89;
+}
+
 bool amiitool::loadFileFromData(uint8_t * filedata, int size, bool lenient)
 {
 	fileloaded = false;
@@ -346,9 +392,14 @@ void amiitool::readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, b
 int amiitool::readDecryptedFields()
 {
 	amiiboInfo.amiiboName[0] = '\0';
+	amiiboInfo.amiiboOwnerMiiName[0] = '\0';
 	
-	readUTF16BEStr(modified+AMIIBO_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboName, false);
-	readUTF16BEStr(modified+AMIIBO_DEC_OWNERMII_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboOwnerMiiName, true);
+	if ((((modified[AMIIBO_DEC_FLAGS_BYTE_OFFSET] >> 4) & 0x01) == 0x01) &&
+		(((modified[AMIIBO_DEC_FLAGS_BYTE_OFFSET] >> 5) & 0x01) == 0x01))
+	{
+		readUTF16BEStr(modified+AMIIBO_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboName, false);
+		readUTF16BEStr(modified+AMIIBO_DEC_OWNERMII_NAME_OFFSET, AMIIBO_NAME_LEN/2, amiiboInfo.amiiboOwnerMiiName, true);
+	}
 	
 	readIDFields(modified, AMIIBO_DEC_CHARDATA_OFFSET, &amiiboInfo);
 }
@@ -558,6 +609,24 @@ bool nfc__ntag2xx_WritePage(NFCInterface *nfc, uint8_t page, uint8_t * data)
 	//return true; 
 }
 
+bool amiitool::isCardRewritable()
+{
+	bool retval = false;
+	byte pagebytes[] = {0, 0, 0, 0};
+	byte DynamicLockBytes[] = {0x00, 0x00, 0x00, 0x00};
+	
+	nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, DynamicLockBytes);
+	
+	if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) {
+		if ((pagebytes[0] == DynamicLockBytes[0]) &&
+			(pagebytes[1] == DynamicLockBytes[1]) &&
+			(pagebytes[2] == DynamicLockBytes[2]) &&
+			(pagebytes[3] == DynamicLockBytes[3])) {
+				retval = true;
+		}
+	}
+}
+
 bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport) {
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
@@ -572,6 +641,7 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
   const float pctScaleVal = 100.0/((float)NTAG215_SIZE/4.0);
   cancelWrite = false;
   bool cardLocked = false;
+  bool cardRewritable = false;
 
   if (!tryLoadKey()) {
     if (statusReport != NULL) statusReport("writeTag error: key not loaded.");
@@ -607,13 +677,13 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
     
     if (uidLength == 7)
     {
-	  
 	  if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) {
 		if ((pagebytes[0] == DynamicLockBytes[0]) &&
 			(pagebytes[1] == DynamicLockBytes[1]) &&
 			(pagebytes[2] == DynamicLockBytes[2])) {
+				
 			if (statusReport != NULL) statusReport("Cannot write amiibo: amiibo is locked (dynamic lock).");
-			cardLocked = true;	
+			cardLocked = true;
 		}
 	  }
 	  else {
@@ -621,12 +691,12 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 		cardLocked = true;
 	  }
 	  
-	  if (!cardLocked) {
+	  if (!cardLocked && !cardRewritable) {
 		  if (nfc->ntag2xx_ReadPage(AMIIBO_STATIC_LOCK_PAGE, pagebytes)) {
 			if ((pagebytes[2] == StaticLockBytes[2]) &&
 				(pagebytes[3] == StaticLockBytes[3])) {
 				if (statusReport != NULL) statusReport("Cannot write amiibo: amiibo is locked (static lock).");
-				cardLocked = true;	
+				cardLocked = true;
 			}
 		  }
 		  else {
@@ -635,7 +705,7 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 		  }
 	  }
 	  
-	  if (!cardLocked) {
+	  if (!cardLocked && !cardRewritable) {
 		  if (encryptLoadedFile(uid) >= 0)
 		  {
 			if (statusReport != NULL) statusReport("Writing tag data...");
