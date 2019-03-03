@@ -47,21 +47,30 @@ GND | GND
 RST | D3
 3.3v | 3.3v
 
-### Software Library Dependencies
+### Flashing
+If you already have the ESP toolchain (or at least utilities) installed, running the following command from a terminal/command prompt will flash the ESP:
+
+`esptool.py --port <serial_port> write_flash -fm dio 0x00000 <path/to/Wifiibo_1.35.ino.d1_mini.bin>`
+
+On Windows, the serial port will be something like `COM5`, on Linux it will be something like `/dev/ttyS1` or `/dev/ttyUSB0`, and on Mac something like `/dev/cu.usbserial-141130`.
+
+If you don't have the ESP tools installed, but you have python (Linux,Mac), you can try to install them by running the following command from a terminal:
+`pip install esptool`
+
+### Compiling
 Wifiibo depends on a number of additional Arduino libraries (which are needed if you want to compile Wifiibo):
 * [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
 * [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
 * [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
   * Use version 5; version 6 has a new API that is not yet supported
+
+Wifiibo also uses modified versions of the following libraries; they are included with Wifiibo, so you don't need to download them separately (they also use different library names so they will coexist with existing copies):
 * [Adafruit_PN532](https://github.com/adafruit/Adafruit-PN532)
-  * A modified version of this library, Adafruit_PN532Ex, is included with Wifiibo, so you don't need to download this library separately
 * [rfid](https://github.com/miguelbalboa/rfid)
-  * A modified version of this library, MFRC522Ex, is included with Wifiibo, so you don't need to download this library separately
 * [mbedtls](https://tls.mbed.org/)
-  * A modified version of this library is included with Wifiibo, so you don't need to download this library separately
   
-### Compiling
-In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 2.5.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu, listed under the "amiitool" library.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
+#### IDE
+In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 2.5.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  After the inital upload you'll want to upload the data directory as well, which contains some additional utilities and the website favicon.
 
 ## Using Wifiibo
 When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up its own hotspot called "Wifiibo."  Connect to the hotspot using your phone or computer, then open a web browser and go to http://192.168.4.1 to access Wifiibo.  Click on the "Configure Wifi" button, enter your Wifi network credentials, and click submit.
