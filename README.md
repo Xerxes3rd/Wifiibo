@@ -77,7 +77,7 @@ When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up i
 
 Once connected to Wifi, you can access Wifiibo by going to http://wifiibo.local in your broswer.  Alternatively, some routers will allow you to go to [http://wifiibo.](http://wifiibo.) (note the '.' at the end).  Tip: Once you get to the Wifiibo page, you can click on the IP in the top-right corner of the page.  Using the IP directly seems to be faster on some Windows computers.
 
-In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encryption keys.  Click on the red button labeled "Upload keys" to import or upload your amiibo encryption keys.  The keys file must be named "key_retail.bin".  Once you have successfully imported the amiibo encryption keys, the red "Upload keys" button will disappear.
+In order for Wifiibo to read or write any amiibo tags, it needs the amiibo encryption keys.  Click on the red button labeled "Upload keys" for further instructions.  Alternatively, if you already have a keys file, you can upload it using the "Upload amiibo" button (the keys file must be named "key_retail.bin").  Once you have successfully imported the amiibo encryption keys, the red "Upload keys" button will disappear.
 
 Using Wifiibo is fairly straightforward.  amiibo data is pulled from the excellent [amiibo API](https://github.com/N3evin/AmiiboAPI/) by @N3vin.
 In order to write amiibo information to a tag, the tag must be type NTAG215 and must be blank.
