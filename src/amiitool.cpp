@@ -239,30 +239,30 @@ void amiitool::generateBlankAmiibo(uint8_t * amiiboID)
 	fileloaded = false;
 	memset(modified, 0, NFC3D_AMIIBO_SIZE);
 	
-  const uint16_t InternalByte = 0x0001;
+	const uint16_t InternalByte = 0x0001;
 	modified[InternalByte] = 0x48;
 
 	const uint16_t CCLoc = 0x0004;
 	uint8_t ccBytes[4] = { 0xF1, 0x10, 0xFF, 0xEE };
-	memcpy(modified+0x0004, ccBytes, 4);
+	memcpy(modified+CCLoc, ccBytes, 4);
 
 	const uint16_t A5Loc = 0x0028;
 	modified[A5Loc] = 0xA5;
 
 	const uint16_t CFG01Loc = 0x020C;
 	uint8_t cfg01Bytes[8] = { 0x00, 0x00, 0x00, 0x04, 0x5F, 0x00, 0x00, 0x00 };
-	memcpy(modified+0x020C, cfg01Bytes, 8);
+	memcpy(modified+CFG01Loc, cfg01Bytes, 8);
 
 	const uint16_t StaticLockLoc = 0x0002;
 	uint8_t staticLockBytes[2] = { 0x0F, 0xE0 };
-	memcpy(modified+0x0002, staticLockBytes, 2);
+	memcpy(modified+StaticLockLoc, staticLockBytes, 2);
 
 	const uint16_t DynLockLoc = 0x0208;
 	uint8_t dynLockBytes[4] = { 0x01, 0x00, 0x0F, 0xBD };
-	memcpy(modified+0x0208, dynLockBytes, 4);
+	memcpy(modified+DynLockLoc, dynLockBytes, 4);
 	
 	const uint16_t AmiiboIDLoc = 0x01DC;
-	memcpy(modified+0x01DC, amiiboID, 8);
+	memcpy(modified+AmiiboIDLoc, amiiboID, 8);
 	
 	fileloaded = true;
 }
@@ -280,7 +280,7 @@ void amiitool::generateRandomUID(uint8_t * uid, uint8_t * sizeLen)
 		uid[4] = 0x89;
 
 	// Force BCC1 to be 0
-	uid[7] = uid[4] ^ uid[5] ^ uid[6];
+	//uid[6] = uid[3] ^ uid[4] ^ uid[5];
 	
 	*sizeLen = 7;
 }
@@ -372,6 +372,9 @@ int amiitool::encryptLoadedFile(uint8_t * uid)
 	
 	memset(original+0x000A, 0, 2);
 	memset(original+0x0208, 0, 3);
+
+	// Clear the last 8 bytes- they can't be written to on NTAG215s
+	//memset(modified+0x0214, 0, 8);
 	
 	return 0;
 }
@@ -648,18 +651,40 @@ bool amiitool::isCardRewritable()
 	uint8_t origByte0 = 0x00;
 	const uint8_t byte0Test = 0x05;
 
-/*
-	nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, ZeroDynamicLockBytes);
-	
-	if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) {
-		if ((pagebytes[0] == ZeroDynamicLockBytes[0]) &&
-			(pagebytes[1] == ZeroDynamicLockBytes[1]) &&
-			(pagebytes[2] == ZeroDynamicLockBytes[2]) &&
-			(pagebytes[3] == ZeroDynamicLockBytes[3])) {
-				dynLockClear = true;
+	// TODO: Try this code with non-rewritable tags
+	if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) 
+	{
+		yield();
+		if ((pagebytes[0] != 0) &&
+			(pagebytes[1] != 0) &&
+			(pagebytes[2] != 0) &&
+			(pagebytes[3] != 0))
+		{
+			// Dynamic lock not clear, attempt to clear it
+			if (nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, ZeroDynamicLockBytes))
+			{
+				yield();
+				if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) 
+				{
+					yield();
+					if ((pagebytes[0] == 0) &&
+						(pagebytes[1] == 0) &&
+						(pagebytes[2] == 0) &&
+						(pagebytes[3] == 0))
+					{
+						if (nfc__ntag2xx_WritePage(nfc, AMIIBO_STATIC_LOCK_PAGE, ZeroDynamicLockBytes))
+						{
+							yield();
+							uidChangeable = true;
+						}
+					}
+				}
+			}
 		}
 	}
-*/
+
+/*
+	// This code doesn't play nicely with non-rewritable tags
 	if (nfc->ntag2xx_ReadPage(0, pagebytes))
 	{
 		origByte0 = pagebytes[0];
@@ -672,13 +697,69 @@ bool amiitool::isCardRewritable()
 				{
 					uidChangeable = true;
 					pagebytes[0] = origByte0;
-					//nfc__ntag2xx_WritePage(nfc, 0, pagebytes);
+					nfc__ntag2xx_WritePage(nfc, 0, pagebytes);
+				}
+				else
+				{
+					Serial.println("isCardRewritable: Page 0 bytes don't match attempted write; tag is not rewritable");
 				}
 			}
+			else
+			{
+				Serial.println("isCardRewritable: Unable to read page 0 after writing");
+			}
+		}
+		else
+		{
+			Serial.println("isCardRewritable: Unable to write page 0, tag is not rewritable");
 		}
 	}
+	else
+	{
+		Serial.println("isCardRewritable: Unable to read page 0");
+	}
+*/
 
 	return uidChangeable;
+}
+
+bool amiitool::verifyPage(int pagenum, uint8_t * pagebytes)
+{
+	bool retval = false;
+	bool success = false;
+
+	uint8_t pagebytesTemp[] = {0, 0, 0, 0};
+
+	Serial.print("Verifying page ");
+	Serial.print(pagenum);
+	Serial.print(": ");
+	success = nfc->ntag2xx_ReadPage(pagenum, pagebytesTemp);
+
+	if (success)
+	{
+		if ((*(pagebytes+0) != pagebytesTemp[0]) ||
+			(*(pagebytes+1) != pagebytesTemp[1]) ||
+			(*(pagebytes+2) != pagebytesTemp[2]) ||
+			(*(pagebytes+3) != pagebytesTemp[3]))
+		{
+			Serial.print("mismatch: should be: ");
+			printData(pagebytes, 4, 16, false, false);
+			Serial.print(" but read: ");
+			printData(pagebytesTemp, 4, 16, false, false);
+			Serial.println("");
+		}
+		else
+		{
+			Serial.println("OK.");
+			retval = true;
+		}
+	}
+	else
+	{
+		Serial.println("Error reading page.");
+	}
+
+	return retval;
 }
 
 bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport)
@@ -710,7 +791,7 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 		return false;
 	}
 
-	SendStatusMessage(statusReport, "Place amiibo on the reader.");
+	SendStatusMessage(statusReport, "Place tag on the reader.");
 
 	do
 	{
@@ -731,7 +812,7 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 		//PrintHexShort(uid, uidLength);
 		//Serial.println();
 
-		cardRewritable = isCardRewritable();
+		//cardRewritable = isCardRewritable(); // TODO: Difficult to check for rewritable cards, and they don't seem to work anyway
 		if (cardRewritable)
 		{
 			SendStatusMessage(statusReport, "Rewritable card detected, generating random UID.");
@@ -742,10 +823,19 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 		pct = 0;
 		ReportProgressPercent(progressPercentReport, pct);
 
-		if ((uidLength != 7) || !cardRewritable)
+		if ((uidLength != 7) && !cardRewritable)
 		{
 			SendStatusMessage(statusReport, "Invalid tag UID.");
 			return false;
+		}
+		else
+		{
+			Serial.print("Tag UID: ");
+			for (int bN = 0; bN < 7; bN++)
+			{
+				Serial.print(uid[bN], HEX);
+			}
+			Serial.println("\n");
 		}
 
 		// Check the static & dynamic lock bytes if this card isn't a rewritable type
@@ -820,6 +910,8 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 							Serial.print(", bytes:");
 							printData(pagebytes, 4, 16, false, false);
 							yield();
+							//success = verifyPage(currentPage, pagebytes);
+							//yield();
 							break;
 						}
 						else if (tries == 1)
@@ -835,11 +927,14 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 						}
 						else
 						{
-							//Serial.print("writeTag: Error writing page ");
-							//Serial.println(currentPage);
+							Serial.print("Error writing page ");
+							Serial.println(currentPage);
 						}
 						tries--;
 					}
+
+					if (!success)
+						break;
 				}
 			}
 
@@ -871,6 +966,8 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 						Serial.print(", bytes:");
 						printData(pagebytes, 4, 16, false, false);
 						yield();
+						//success = verifyPage(currentPage, pagebytes);
+						//yield();
 						break;
 					}
 					else if (tries == 1)
@@ -912,12 +1009,33 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 					SendStatusMessage(statusReport, "Failed to write static lock bytes, please try again.");
 					return false;
 				}
+				else
+				{
+					Serial.print("Wrote page (dynamic lock) ");
+					Serial.print(AMIIBO_DYNAMIC_LOCK_PAGE);
+					Serial.print(", bytes:");
+					printData((uint8_t *)DynamicLockBytes, 4, 16, false, false);
+					yield();
+				}
+				
 				
 				//Serial.println("Wrote dynamic lock page.");
-				if (!nfc__ntag2xx_WritePage(nfc, AMIIBO_STATIC_LOCK_PAGE, (uint8_t *)StaticLockBytes))
+				pagebytes[0] = cardRewritable ? (uid[3] ^ uid[4] ^ uid[5] ^ uid[6]) : 0x00;
+				pagebytes[1] = cardRewritable ? 0x48 : 0x00;
+				pagebytes[2] = StaticLockBytes[2];
+				pagebytes[3] = StaticLockBytes[3];
+				if (!nfc__ntag2xx_WritePage(nfc, AMIIBO_STATIC_LOCK_PAGE, pagebytes))
 				{
 					SendStatusMessage(statusReport, "Failed to write dynamic lock bytes, please try again.");
 					return false;
+				}
+				else
+				{
+					Serial.print("Wrote page (static lock) ");
+					Serial.print(AMIIBO_STATIC_LOCK_PAGE);
+					Serial.print(", bytes:");
+					printData(pagebytes, 4, 16, false, false);
+					yield();
 				}
 
 				retval = true;

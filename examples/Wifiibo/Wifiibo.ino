@@ -1,5 +1,4 @@
 //#define USE_SDFAT
-//#define FS_NO_GLOBALS //allow spiffs to coexist with SD card, define BEFORE including FS.h
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
@@ -619,6 +618,12 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMe
 
   if (outStr != NULL)
     root.printTo(*outStr);
+
+  DBG_OUTPUT_PORT.print("Done sending ");
+  DBG_OUTPUT_PORT.print(count);
+  DBG_OUTPUT_PORT.println(" amiibo entries.");
+
+  return retval;
 }
 
 

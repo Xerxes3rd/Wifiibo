@@ -9,3 +9,4 @@ examples/Wifiibo/data/*.bin
 .Trashes
 ehthumbs.db
 Thumbs.db
+doc/web_dump

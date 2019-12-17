@@ -858,7 +858,7 @@
 
 			if (document.location.host === "") {
 				//host = '192.168.1.171'; // For testing
-				host = 'wifiibo.'; // For testing
+				host = 'wifiibo.local'; // For testing
 				//host = '192.168.4.1';
 			}
 
@@ -1606,7 +1606,7 @@
 			link.href = document.getElementById(canvasId).toDataURL();
 			link.download = filename;
 		}
-		var showNonDumps = false; // Temporary until everything's tested
+		var showNonDumps = true; // Temporary until everything's tested
 		function processAmiiboList(tagInfo) {
 			var out = "";
 			var data = [];

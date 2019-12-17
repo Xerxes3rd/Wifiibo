@@ -102,6 +102,7 @@ class amiitool
 		void generateBlankAmiibo(uint8_t * amiiboID);
 		void generateRandomUID(uint8_t * uid, uint8_t * sizeLen);
 		bool isCardRewritable();
+		bool verifyPage(int pagenum, uint8_t * pagebytes);
 		
 		static void printData(uint8_t *data, int len, int valsPerCol, bool headers, bool formatForC);
 		static void readUTF16BEStr(uint8_t *startByte, int stringLen, char *outStr, bool byteSwap);
