@@ -53,6 +53,9 @@ typedef struct
 typedef void (*StatusMessageCallback)(char *);
 typedef void (*ProgressPercentCallback)(int);
 
+const uint8_t DynamicLockBytes[] = {0x01, 0x00, 0x0F, 0xBD};
+const uint8_t StaticLockBytes[] =  {0x00, 0x00, 0x0F, 0xE0};
+
 class amiitool
 {
 	public:
@@ -97,7 +100,7 @@ class amiitool
 		NFCInterface* getNFC();
 		bool isNFCStarted();
 		void generateBlankAmiibo(uint8_t * amiiboID);
-		void generateRandomUID(uint8_t * uid);
+		void generateRandomUID(uint8_t * uid, uint8_t * sizeLen);
 		bool isCardRewritable();
 		
 		static void printData(uint8_t *data, int len, int valsPerCol, bool headers, bool formatForC);

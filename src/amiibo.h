@@ -21,12 +21,13 @@
 extern "C" {
 #endif
 
+#pragma push()
 #pragma pack(1)
 typedef struct {
 	nfc3d_keygen_masterkeys data;
 	nfc3d_keygen_masterkeys tag;
 } nfc3d_amiibo_keys;
-#pragma pack()
+#pragma pop()
 
 bool nfc3d_amiibo_unpack(const nfc3d_amiibo_keys * amiiboKeys, const uint8_t * tag, uint8_t * plain);
 void nfc3d_amiibo_pack(const nfc3d_amiibo_keys * amiiboKeys, const uint8_t * plain, uint8_t * tag);

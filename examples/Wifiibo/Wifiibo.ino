@@ -1,9 +1,9 @@
 //#define USE_SDFAT
-#define FS_NO_GLOBALS //allow spiffs to coexist with SD card, define BEFORE including FS.h
+//#define FS_NO_GLOBALS //allow spiffs to coexist with SD card, define BEFORE including FS.h
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
-#include <FS.h>
+#include "FS.h"
 #include <Hash.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -66,7 +66,7 @@ volatile bool shouldReboot = false;
 
 const int MAX_COUNT_PER_MESSAGE = 25;
 
-const char* versionStr = "1.35";
+const char* versionStr = "1.36";
 const uint32_t nfcVersionStrLen = 64;
 char nfcVersionStr[nfcVersionStrLen];
 

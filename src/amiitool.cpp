@@ -239,7 +239,7 @@ void amiitool::generateBlankAmiibo(uint8_t * amiiboID)
 	fileloaded = false;
 	memset(modified, 0, NFC3D_AMIIBO_SIZE);
 	
-    const uint16_t InternalByte = 0x0001;
+  const uint16_t InternalByte = 0x0001;
 	modified[InternalByte] = 0x48;
 
 	const uint16_t CCLoc = 0x0004;
@@ -267,7 +267,7 @@ void amiitool::generateBlankAmiibo(uint8_t * amiiboID)
 	fileloaded = true;
 }
 
-void amiitool::generateRandomUID(uint8_t * uid)
+void amiitool::generateRandomUID(uint8_t * uid, uint8_t * sizeLen)
 {
 	uid[0] = 0x04; // Manufacturer code for NXP
 	
@@ -278,6 +278,11 @@ void amiitool::generateRandomUID(uint8_t * uid)
 	
 	if (uid[4] == 0x88) // 0x88 is reserved, and indicates a 7-byte UID
 		uid[4] = 0x89;
+
+	// Force BCC1 to be 0
+	uid[7] = uid[4] ^ uid[5] ^ uid[6];
+	
+	*sizeLen = 7;
 }
 
 bool amiitool::loadFileFromData(uint8_t * filedata, int size, bool lenient)
@@ -469,55 +474,71 @@ bool amiitool::initNFC(NFCInterface *nfcObj)
   return true;
 }
 
+void SendStatusMessage(StatusMessageCallback statusReport, char * message)
+{
+	yield();
+	if (statusReport != NULL) 
+		statusReport(message);
+	yield();
+}
+
+void ReportProgressPercent(ProgressPercentCallback progressPercentReport, int pct)
+{
+	yield();
+	if (progressPercentReport != NULL) 
+		progressPercentReport(pct);
+	yield();
+}
+
 bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport) {
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+  const float pctScaleVal = 100.0/((float)NTAG215_SIZE/4.0);
+	uint8_t success;
   uint8_t uidLength;                        // Length of the UID
   int8_t tries;
   bool retval = false;
-  const float pctScaleVal = 100.0/((float)NTAG215_SIZE/4.0);
   cancelRead = false;
 
   if (!tryLoadKey()) {
-    if (statusReport != NULL) statusReport("readTag error: key not loaded.");
-    return false;
+    SendStatusMessage(statusReport, "readTag error: key not loaded.");
+		return false;
   }
   
   if (!nfcstarted) {
-	if (statusReport != NULL) statusReport("readTag error: NFC hardware not available");
-	return false;
+		SendStatusMessage(statusReport, "readTag error: NFC hardware not available");
+		return false;
   }
 
-  if (statusReport != NULL) statusReport("Place amiibo on the reader.");
+  SendStatusMessage(statusReport, "Place amiibo on the reader.");
   // Wait for an NTAG215 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
   do
   {
-	success = nfc->readID(uid, &uidLength, 500);
+		success = nfc->readID(uid, &uidLength, 500);
   } while (!success && !cancelRead);
   
   if (cancelRead)
   {
-	if (statusReport != NULL) statusReport("Connected.");
-	cancelRead = false;
+		SendStatusMessage(statusReport, "Connected.");
+		cancelRead = false;
   }
   
   if (success) {
-	//Serial.println("Tag UID read.");
+		//Serial.println("Tag UID read.");
     //Serial.println();
     //Serial.print(F("Tag UID: "));
     //PrintHexShort(uid, uidLength);
     //Serial.println();
-	const uint32_t reportInvervalMS = 500;
+		const uint32_t reportInvervalMS = 500;
     int pct = 0;
-    if (progressPercentReport != NULL) progressPercentReport(pct);
+    ReportProgressPercent(progressPercentReport, pct);
     uint32_t lastTimer = millis();
 
     if (uidLength == 7)
     {     
       uint8_t data[32];
 
-      if (statusReport != NULL) statusReport("Starting dump...");
+      SendStatusMessage(statusReport, "Starting dump...");
 
       for (uint8_t i = 0; i < NTAG215_SIZE/4; i++) 
       {
@@ -540,7 +561,7 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
           {
             char txt[32];
             sprintf(txt, "Unable to read page: %d", i);
-            if (statusReport != NULL) statusReport(txt);
+            SendStatusMessage(statusReport, txt);
           }
           tries--;
           yield();
@@ -551,51 +572,57 @@ bool amiitool::readTag(StatusMessageCallback statusReport, ProgressPercentCallba
         //if (newPct > pct+9)
         {
           pct = newPct;
-          if (progressPercentReport != NULL) progressPercentReport(pct);
+          ReportProgressPercent(progressPercentReport, pct);
           lastTimer = millis();
         }
+
+				yield();
         
         if (!success)
           break;
       }
 
-      if (progressPercentReport != NULL) progressPercentReport(100);
+      ReportProgressPercent(progressPercentReport, 100);
     }
     else
     {
-      if (statusReport != NULL) statusReport("This doesn't seem to be an amiibo.");
+      SendStatusMessage(statusReport, "This doesn't seem to be an amiibo.");
       success = false;
     }
 	
     if (success)
     {  
-	  //Serial.println("Tag dump:");
-	  //printData(original, NTAG215_SIZE, 4, false, true);
+			//Serial.println("Tag dump:");
+			//printData(original, NTAG215_SIZE, 4, false, true);
+			yield();
       retval = loadFileFromData(original, NTAG215_SIZE, false);
+			yield();
       
       if (!retval)
       {
-        if (statusReport != NULL) statusReport("Decryption error.");
+        SendStatusMessage(statusReport, "Decryption error.");
       }
       else
       {
         //Serial.println("Decrypted tag data:");
         //printData(modified, NFC3D_AMIIBO_SIZE, 16, true, false);
-        if (statusReport != NULL) statusReport("Tag read successfully.");
+        SendStatusMessage(statusReport, "Tag read successfully.");
       }
     }
   }
   else
   {
-	if (cancelRead)
-		if (statusReport != NULL) statusReport("NFC read cancelled.");
-	else
-		if (statusReport != NULL) statusReport("NFC read timeout.");
+		if (cancelRead)
+			SendStatusMessage(statusReport, "NFC read cancelled.");
+		else
+			SendStatusMessage(statusReport, "NFC read timeout.");
   }
 
+	yield();
   cancelRead = false;
   nfc->ntag2xx_FinishedReading();
-  
+  yield();
+
   return retval;
 }
 
@@ -611,134 +638,246 @@ bool nfc__ntag2xx_WritePage(NFCInterface *nfc, uint8_t page, uint8_t * data)
 
 bool amiitool::isCardRewritable()
 {
+	uint8_t pagebytes[] = {0, 0, 0, 0};
+	uint8_t ZeroDynamicLockBytes[] = {0x00, 0x00, 0x00, 0x00};
+	uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+	uint8_t uidLength;                        // Length of the UID
 	bool retval = false;
-	byte pagebytes[] = {0, 0, 0, 0};
-	byte DynamicLockBytes[] = {0x00, 0x00, 0x00, 0x00};
-	
-	nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, DynamicLockBytes);
+	bool dynLockClear = false;
+	bool uidChangeable = false;
+	uint8_t origByte0 = 0x00;
+	const uint8_t byte0Test = 0x05;
+
+/*
+	nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, ZeroDynamicLockBytes);
 	
 	if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) {
-		if ((pagebytes[0] == DynamicLockBytes[0]) &&
-			(pagebytes[1] == DynamicLockBytes[1]) &&
-			(pagebytes[2] == DynamicLockBytes[2]) &&
-			(pagebytes[3] == DynamicLockBytes[3])) {
-				retval = true;
+		if ((pagebytes[0] == ZeroDynamicLockBytes[0]) &&
+			(pagebytes[1] == ZeroDynamicLockBytes[1]) &&
+			(pagebytes[2] == ZeroDynamicLockBytes[2]) &&
+			(pagebytes[3] == ZeroDynamicLockBytes[3])) {
+				dynLockClear = true;
 		}
 	}
+*/
+	if (nfc->ntag2xx_ReadPage(0, pagebytes))
+	{
+		origByte0 = pagebytes[0];
+		pagebytes[0] = byte0Test;
+		if (nfc__ntag2xx_WritePage(nfc, 0, pagebytes))
+		{
+			if (nfc->ntag2xx_ReadPage(0, pagebytes))
+			{
+				if (pagebytes[0] == byte0Test)
+				{
+					uidChangeable = true;
+					pagebytes[0] = origByte0;
+					//nfc__ntag2xx_WritePage(nfc, 0, pagebytes);
+				}
+			}
+		}
+	}
+
+	return uidChangeable;
 }
 
-bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport) {
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;                        // Length of the UID
-  byte pagebytes[] = {0, 0, 0, 0}; 
-  byte DynamicLockBytes[] = {0x01, 0x00, 0x0F, 0xBD};
-  byte StaticLockBytes[] =  {0x00, 0x00, 0x0F, 0xE0};
-  int8_t tries;
-  bool retval = false;
-  //uint8_t currentPage = 3;
-  uint8_t maxPage = 135;
-  const float pctScaleVal = 100.0/((float)NTAG215_SIZE/4.0);
-  cancelWrite = false;
-  bool cardLocked = false;
-  bool cardRewritable = false;
-
-  if (!tryLoadKey()) {
-    if (statusReport != NULL) statusReport("writeTag error: key not loaded.");
-    return false;
-  }
-  
-  if (!nfcstarted) {
-	if (statusReport != NULL) statusReport("writeTag error: NFC hardware not available");
-	return false;
-  }
-
-  if (statusReport != NULL) statusReport("Place amiibo on the reader.");
-  
-  do
-  {
-	success = nfc->readID(uid, &uidLength, 500);
-  } while (!success && !cancelWrite);
-  
-  if (cancelWrite)
-  {
-	if (statusReport != NULL) statusReport("Connected.");
-	cancelWrite = false;
-  }
-
-  if (success) {
-    //Serial.println();
-    //Serial.print(F("Tag UID: "));
-    //amiitool::printData(uid, uidLength, 16, false, false);
-    //PrintHexShort(uid, uidLength);
-    //Serial.println();
+bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallback progressPercentReport)
+{
+	uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // Buffer to store the returned UID
+	byte pagebytes[] = {0, 0, 0, 0};
+	const float pctScaleVal = 100.0 / ((float)NTAG215_SIZE / 4.0);
 	int pct = 0;
-	if (progressPercentReport != NULL) progressPercentReport(pct);
-    
-    if (uidLength == 7)
-    {
-	  if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes)) {
-		if ((pagebytes[0] == DynamicLockBytes[0]) &&
-			(pagebytes[1] == DynamicLockBytes[1]) &&
-			(pagebytes[2] == DynamicLockBytes[2])) {
-				
-			if (statusReport != NULL) statusReport("Cannot write amiibo: amiibo is locked (dynamic lock).");
-			cardLocked = true;
+	uint8_t uidLength;										 // Length of the UID
+	uint8_t success;
+	int8_t tries;
+	bool retval = false;
+	//uint8_t currentPage = 3;
+	uint8_t maxPage = 135;	
+	bool cardLocked = false;
+	bool cardRewritable = false;
+	uint8_t temp = 0;
+	cancelWrite = false;
+
+	if (!tryLoadKey())
+	{
+		SendStatusMessage(statusReport, "writeTag error: key not loaded.");
+		return false;
+	}
+
+	if (!nfcstarted)
+	{
+		SendStatusMessage(statusReport, "writeTag error: NFC hardware not available");
+		return false;
+	}
+
+	SendStatusMessage(statusReport, "Place amiibo on the reader.");
+
+	do
+	{
+		success = nfc->readID(uid, &uidLength, 500);
+	} while (!success && !cancelWrite);
+
+	if (cancelWrite)
+	{
+		SendStatusMessage(statusReport, "Connected.");
+		cancelWrite = false;
+	}
+
+	if (success)
+	{
+		//Serial.println();
+		//Serial.print(F("Tag UID: "));
+		//amiitool::printData(uid, uidLength, 16, false, false);
+		//PrintHexShort(uid, uidLength);
+		//Serial.println();
+
+		cardRewritable = isCardRewritable();
+		if (cardRewritable)
+		{
+			SendStatusMessage(statusReport, "Rewritable card detected, generating random UID.");
+			//return false;
+			generateRandomUID(uid, &uidLength);
 		}
-	  }
-	  else {
-		if (statusReport != NULL) statusReport("Unable to read dynamic lock bytes.");
-		cardLocked = true;
-	  }
-	  
-	  if (!cardLocked && !cardRewritable) {
-		  if (nfc->ntag2xx_ReadPage(AMIIBO_STATIC_LOCK_PAGE, pagebytes)) {
-			if ((pagebytes[2] == StaticLockBytes[2]) &&
-				(pagebytes[3] == StaticLockBytes[3])) {
-				if (statusReport != NULL) statusReport("Cannot write amiibo: amiibo is locked (static lock).");
+
+		pct = 0;
+		ReportProgressPercent(progressPercentReport, pct);
+
+		if ((uidLength != 7) || !cardRewritable)
+		{
+			SendStatusMessage(statusReport, "Invalid tag UID.");
+			return false;
+		}
+
+		// Check the static & dynamic lock bytes if this card isn't a rewritable type
+		if (!cardRewritable)
+		{
+			if (nfc->ntag2xx_ReadPage(AMIIBO_DYNAMIC_LOCK_PAGE, pagebytes))
+			{
+				if ((pagebytes[0] == DynamicLockBytes[0]) &&
+						(pagebytes[1] == DynamicLockBytes[1]) &&
+						(pagebytes[2] == DynamicLockBytes[2]))
+				{
+					SendStatusMessage(statusReport, "Cannot write amiibo: amiibo is locked (dynamic lock).");
+					cardLocked = true;
+				}
+			}
+			else
+			{
+				SendStatusMessage(statusReport, "Unable to read dynamic lock bytes.");
 				cardLocked = true;
 			}
-		  }
-		  else {
-			if (statusReport != NULL) statusReport("Unable to read dynamic lock bytes.");
-			cardLocked = true;
-		  }
-	  }
-	  
-	  if (!cardLocked && !cardRewritable) {
-		  if (encryptLoadedFile(uid) >= 0)
-		  {
-			if (statusReport != NULL) statusReport("Writing tag data...");
-			for (volatile uint8_t currentPage = 3; currentPage < AMIIBO_PAGES; currentPage++)
+
+			if (!cardLocked && !cardRewritable)
+			{
+				if (nfc->ntag2xx_ReadPage(AMIIBO_STATIC_LOCK_PAGE, pagebytes))
+				{
+					if ((pagebytes[2] == StaticLockBytes[2]) &&
+							(pagebytes[3] == StaticLockBytes[3]))
+					{
+						SendStatusMessage(statusReport, "Cannot write amiibo: amiibo is locked (static lock).");
+						cardLocked = true;
+					}
+				}
+				else
+				{
+					SendStatusMessage(statusReport, "Unable to read static lock bytes.");
+					cardLocked = true;
+				}
+			}
+		}
+
+		if (!cardLocked)
+		{
+			if (encryptLoadedFile(uid) < 0)
+			{
+				SendStatusMessage(statusReport, "Error encrypting file.");
+				return false;
+			}
+
+			SendStatusMessage(statusReport, "Writing tag data...");
+
+			if (cardRewritable)
+			{
+				for (volatile int8_t currentPage = 3; currentPage >= 0; currentPage--)
+				{
+					tries = NFC_PAGE_READ_TRIES;
+					for (volatile uint8_t pagebyte = 0; pagebyte < NTAG215_PAGESIZE; pagebyte++)
+					{
+						pagebytes[pagebyte] = original[(currentPage * NTAG215_PAGESIZE) + pagebyte];
+					}
+
+					while (tries > 0)
+					{
+						yield();
+						success = nfc__ntag2xx_WritePage(nfc, (uint8_t)currentPage, pagebytes);
+
+						if (success)
+						{
+							//Serial.print("writeTag: Wrote page ");
+							//Serial.println(currentPage);
+							Serial.print("Wrote page ");
+							Serial.print(currentPage);
+							Serial.print(", bytes:");
+							printData(pagebytes, 4, 16, false, false);
+							yield();
+							break;
+						}
+						else if (tries == 1)
+						{
+							char txt[32];
+							sprintf(txt, "Unable to write page: %d, please try again.", currentPage);
+							SendStatusMessage(statusReport, txt);
+							//Serial.print("Page ");
+							//Serial.print(currentPage);
+							//Serial.print(" bytes:");
+							//printData(pagebytes, 4, 16, false, false);
+							break;
+						}
+						else
+						{
+							//Serial.print("writeTag: Error writing page ");
+							//Serial.println(currentPage);
+						}
+						tries--;
+					}
+				}
+			}
+
+			for (volatile uint8_t currentPage = cardRewritable ? 4 : 3; currentPage < AMIIBO_PAGES; currentPage++)
 			{
 				tries = NFC_PAGE_READ_TRIES;
-				for (uint8_t pagebyte = 0; pagebyte < NTAG215_PAGESIZE; pagebyte++)
+				for (volatile uint8_t pagebyte = 0; pagebyte < NTAG215_PAGESIZE; pagebyte++)
 				{
 					pagebytes[pagebyte] = original[(currentPage * NTAG215_PAGESIZE) + pagebyte];
 				}
-							
+
 				if (currentPage >= AMIIBO_PAGES)
 				{
 					//Serial.println("Break, page count too high.");
 					break;
 				}
-				
+
 				while (tries > 0)
 				{
 					yield();
 					success = nfc__ntag2xx_WritePage(nfc, currentPage, pagebytes);
-					
+
 					if (success)
 					{
 						//Serial.print("writeTag: Wrote page ");
 						//Serial.println(currentPage);
+						Serial.print("Wrote page ");
+						Serial.print(currentPage);
+						Serial.print(", bytes:");
+						printData(pagebytes, 4, 16, false, false);
+						yield();
 						break;
 					}
 					else if (tries == 1)
 					{
 						char txt[32];
 						sprintf(txt, "Unable to write page: %d, please try again.", currentPage);
-						if (statusReport != NULL) statusReport(txt);
+						SendStatusMessage(statusReport, txt);
 						//Serial.print("Page ");
 						//Serial.print(currentPage);
 						//Serial.print(" bytes:");
@@ -752,54 +891,41 @@ bool amiitool::writeTag(StatusMessageCallback statusReport, ProgressPercentCallb
 					}
 					tries--;
 				}
-				
-				int newPct = (int)(pctScaleVal*(float)currentPage);
-				if (newPct > pct+9)
+
+				int newPct = (int)(pctScaleVal * (float)currentPage);
+				if (newPct > pct + 9)
 				{
-				  pct = newPct;
-				  if (progressPercentReport != NULL) progressPercentReport(pct);
+					pct = newPct;
+					ReportProgressPercent(progressPercentReport, pct);
 				}
-				
+
 				if (!success)
 					break;
 			}
-			
-			if (progressPercentReport != NULL) progressPercentReport(100);
-			
+
+			ReportProgressPercent(progressPercentReport, 100);
+
 			if (success)
 			{
-				if (nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, DynamicLockBytes))
+				if (!nfc__ntag2xx_WritePage(nfc, AMIIBO_DYNAMIC_LOCK_PAGE, (uint8_t *)DynamicLockBytes))
 				{
-					//Serial.println("Wrote dynamic lock page.");
-					if (nfc__ntag2xx_WritePage(nfc, AMIIBO_STATIC_LOCK_PAGE, StaticLockBytes))
-					{
-						//Serial.println("Wrote static lock page.");
-						retval = true;
-					}
-					else
-					{
-						if (statusReport != NULL) statusReport("Failed to write static lock bytes, please try again.");
-					}
+					SendStatusMessage(statusReport, "Failed to write static lock bytes, please try again.");
+					return false;
 				}
-				else
+				
+				//Serial.println("Wrote dynamic lock page.");
+				if (!nfc__ntag2xx_WritePage(nfc, AMIIBO_STATIC_LOCK_PAGE, (uint8_t *)StaticLockBytes))
 				{
-					if (statusReport != NULL) statusReport("Failed to write dynamic lock bytes, please try again.");
+					SendStatusMessage(statusReport, "Failed to write dynamic lock bytes, please try again.");
+					return false;
 				}
-			}
-		  }
-		  else
-		  {
-			  if (statusReport != NULL) statusReport("Error encrypting file.");
-		  }
-	  }
-    }
-	else
-	{
-		if (statusReport != NULL) statusReport("Invalid tag UID.");
-	}
-  }
 
-  return retval;
+				retval = true;
+			}
+		}
+	}
+
+	return retval;
 }
 
 void amiitool::cancelNFCWrite() {
