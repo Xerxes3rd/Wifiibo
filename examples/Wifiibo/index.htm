@@ -1873,7 +1873,7 @@
 			var xmlHttp;
 			var input = document.createElement("input");
 			input.type = "file";
-			input.multiple = false;
+			input.multiple = true;
 			input.name = "data";
 			document.getElementById(element).appendChild(input);
 			var path = document.createElement("input");
@@ -1881,39 +1881,98 @@
 			path.type = "text";
 			path.name = "path";
 			path.defaultValue = "/";
-			//path.hidden = true;
+			path.hidden = true;
 			document.getElementById(element).appendChild(path);
 			var button = document.createElement("button");
 			button.innerHTML = 'Upload';
 			document.getElementById(element).appendChild(button);
+			fileIndex = 0;
+
+			function uploadFile() {
+				if (fileIndex >= input.files.length) {
+					windowHashChange();
+					return;
+				}
+				file = input.files[fileIndex++];
+				xmlHttp = new XMLHttpRequest();
+				xmlHttp.onreadystatechange = function() {
+					if (xmlHttp.readyState === XMLHttpRequest.DONE) {
+						if (xmlHttp.status !== 200) 
+							console.log("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
+						else
+							uploadFile();
+			  		}
+				}
+				var formData = new FormData();
+				var pathStr = getPath(file.name);
+				formData.append("data", file, pathStr);
+				path.value = pathStr;
+				console.log("Uploading " + pathStr);
+				xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
+				xmlHttp.send(formData);
+			}
 
 			function httpPostProcessRequest(){
 			  if (xmlHttp.readyState === 4) {
 					if (xmlHttp.status !== 200) 
 						alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
 					else {
-						//tree.refreshPath(path.value);
+						uploadFile();
 					}
 			  }
 			}
 			button.onclick = function(e){
-			  if(input.files.length === 0){
-					return;
-			  }
+			  //if(input.files.length === 0){
+				//	return;
+			  //}
+			  fileIndex = 0;
+			  uploadFile();
+			  //for (i = 0; i < input.files.length; i++) {
+				//uploadFile(inputs.files[i]);
+			  //}
+			  /*
+			  Array.prototype.forEach.call(input.files, (file) => {
+				xmlHttp = new XMLHttpRequest();
+				xmlHttp.onreadystatechange = httpPostProcessRequest;
+				var formData = new FormData();
+				var pathStr = getPath(file.name);
+				formData.append("data", file, getPath(file));
+				xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
+				xmlHttp.send(formData);
+			  });
+			  */
+			  /*
 			  xmlHttp = new XMLHttpRequest();
 			  xmlHttp.onreadystatechange = httpPostProcessRequest;
 			  var formData = new FormData();
 			  formData.append("data", input.files[0], path.value);
 			  xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
 			  xmlHttp.send(formData);
-			  windowHashChange();
+			  */
+			  //windowHashChange();
 			};
+			/*
 			input.onchange = function(e){
 			  if (input.files.length === 0)
 					return;
 			  var filename = input.files[0].name;
 			  verifyFilename(path, filename);
 			}
+			*/
+		}
+		function getPath(filename) {
+			var filenameMaxLen = 32-1-1-4;
+			var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
+			var name = /(.*)\.[^.]+$/.exec(filename)[1];
+			if (typeof name !== "undefined") {
+					if(name.length > filenameMaxLen) 
+						name = name.substring(0, filenameMaxLen);
+					filename = name;
+			}
+			if (typeof ext !== "undefined") {
+					filename = filename + "." + ext;
+			}
+			return "/" + filename;
 		}
 		function verifyFilename(path, filename) {
 		  var filenameMaxLen = 32-1-1-4;
