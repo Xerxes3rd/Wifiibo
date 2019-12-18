@@ -131,11 +131,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       }
       DBG_OUTPUT_PORT.printf("%s\n",msg.c_str());
 
-      //if(info->opcode == WS_TEXT)
-      //  client->text("I got your text message");
-      //else
-      //  client->binary("I got your binary message");
-      parseClientJSON(server, client, info, msg);
+      parseClientJSON(client, msg);
     } else {
       //message is comprised of multiple frames or the frame is split into multiple packets
       if(info->index == 0){
@@ -163,11 +159,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         DBG_OUTPUT_PORT.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
         if(info->final){
           DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-          //if(info->message_opcode == WS_TEXT)
-          //  client->text("I got your text message");
-          //else
-          //  client->binary("I got your binary message");
-          parseClientJSON(server, client, info, msg);
+          parseClientJSON(client, msg);
         }
       }
     }
@@ -230,7 +222,7 @@ bool dummyWriteTag_PN532() {
   return true;
 }
 
-void parseClientJSON(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsFrameInfo * info, String msg)
+void parseClientJSON(AsyncWebSocketClient * client, String msg)
 {
   //DBG_OUTPUT_PORT.printf("[%u] get Text: %s\n", num, payload);
   StaticJsonBuffer<200> jsonBuffer;
@@ -402,7 +394,7 @@ void sendFunctionStatusCode(char *funcName, int code)
   websocket.textAll(json);
 }
 
-void sendStatusCharArray(char *statusmsg)
+void sendStatusCharArray(const char *statusmsg)
 {
   DBG_OUTPUT_PORT.println(statusmsg);
   String json = "{";
@@ -940,52 +932,7 @@ void setup(){
   WiFi.hostname(hostName);
 
   handleReconnectWifi(true);
-  /*
-  unsigned long wifiTrySeconds = 5;
-  unsigned long wifiStartTime = millis();
-
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(hostName);
-  //WiFi.begin(ssid, password);
-  WiFi.begin();
-  while ((millis() - wifiStartTime) > wifiTrySeconds * 1000)
-  {
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      DBG_OUTPUT_PORT.printf("STA: Failed!\n");
-      WiFi.disconnect(false);
-      delay(500);
-      WiFi.begin();
-    }
-    else
-    {
-      break;
-    }
-  }
-
-  wifiStartTime = millis();
-  if (WiFi.waitForConnectResult() == WL_CONNECTED) {
-    DBG_OUTPUT_PORT.printf("Switching to STA mode.");
-    WiFi.disconnect(false);
-    WiFi.mode(WIFI_STA);
-    delay(500);
-    WiFi.begin();
-    
-    while ((millis() - wifiStartTime) > wifiTrySeconds * 1000)
-    {
-      if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-        DBG_OUTPUT_PORT.printf("STA: Failed!\n");
-        WiFi.disconnect(false);
-        delay(500);
-        WiFi.begin();
-      }
-      else
-      {
-        break;
-      }
-    }
-  }
-  */
-
+  
   //Send OTA events to the browser
   ArduinoOTA.onStart([]() { events.send("Update Start", "ota"); });
   ArduinoOTA.onEnd([]() { events.send("Update End", "ota"); });
@@ -1077,7 +1024,9 @@ void setup(){
         if (!filename.startsWith("/")) filename = "/" + filename;
         if (filename.length() > SPIFFS_OBJ_NAME_LEN - 1) {
           sendFunctionStatusCode("saveAmiibo", -1);
-          sendStatusCharArray("Failed to save file: filename too long.");
+          String status = String("Failed to save file '" + filename + "': filename too long.");
+          //sendStatusCharArray("Failed to save file: filename too long.");
+          sendStatusCharArray(status.c_str());
           fileOK = false;
         }
         else if ((filename == keyfilename) && (len == AMIIBO_KEY_FILE_SIZE)) {
@@ -1087,7 +1036,8 @@ void setup(){
         }
         else if (SPIFFS.exists(filename)) {
           sendFunctionStatusCode("saveAmiibo", -2);
-          sendStatusCharArray("Failed to save file: file exists already.");
+          String status = String("Failed to save file '" + filename + "': file exists already.");
+          sendStatusCharArray(status.c_str());
           fileOK = false;
         }
         else {

@@ -794,7 +794,7 @@
 				<button onclick="window.history.replaceState({}, 'Create Tag', '?id=${taginfo["id"]}#createamiibo'); windowHashChange();">Create Tag</button>
 				` : ``}
 				${(showButtons && isdump) ? `
-				<button onclick="window.location.href='?filename=${taginfo["filename"]}#deleteamiibo'">Delete</button>
+					<button onclick="window.history.replaceState({}, 'Write Tag', '?filename=${taginfo["filename"]}#deleteamiibo'); windowHashChange();">Delete</button>
 				<form style="display:inline-block" method="get" action="${"http://" + getHost() + taginfo["filename"]}">
 					<button style="width:60px" type="submit">\u2B73</button>
 				</form>
@@ -1242,6 +1242,7 @@
 				'#deleteamiibo': function() {
 					// Grab the string after the '#filter/' keyword. Call the filtering function.
 					filename = url.split('#deleteamiibo/')[1];
+					suppressRefresh = true;
 					renderSinglePage('delete-amiibo', filename);
 					//checkGetFileInfo();
 				},
@@ -1876,13 +1877,6 @@
 			input.multiple = true;
 			input.name = "data";
 			document.getElementById(element).appendChild(input);
-			var path = document.createElement("input");
-			path.id = "upload-path";
-			path.type = "text";
-			path.name = "path";
-			path.defaultValue = "/";
-			path.hidden = true;
-			document.getElementById(element).appendChild(path);
 			var button = document.createElement("button");
 			button.innerHTML = 'Upload';
 			document.getElementById(element).appendChild(button);
@@ -1906,7 +1900,6 @@
 				var formData = new FormData();
 				var pathStr = getPath(file.name);
 				formData.append("data", file, pathStr);
-				path.value = pathStr;
 				console.log("Uploading " + pathStr);
 				xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
 				xmlHttp.send(formData);
@@ -1922,43 +1915,9 @@
 			  }
 			}
 			button.onclick = function(e){
-			  //if(input.files.length === 0){
-				//	return;
-			  //}
 			  fileIndex = 0;
 			  uploadFile();
-			  //for (i = 0; i < input.files.length; i++) {
-				//uploadFile(inputs.files[i]);
-			  //}
-			  /*
-			  Array.prototype.forEach.call(input.files, (file) => {
-				xmlHttp = new XMLHttpRequest();
-				xmlHttp.onreadystatechange = httpPostProcessRequest;
-				var formData = new FormData();
-				var pathStr = getPath(file.name);
-				formData.append("data", file, getPath(file));
-				xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
-				xmlHttp.send(formData);
-			  });
-			  */
-			  /*
-			  xmlHttp = new XMLHttpRequest();
-			  xmlHttp.onreadystatechange = httpPostProcessRequest;
-			  var formData = new FormData();
-			  formData.append("data", input.files[0], path.value);
-			  xmlHttp.open("POST", 'http://'+getHost()+'/uploadAmiibo');
-			  xmlHttp.send(formData);
-			  */
-			  //windowHashChange();
 			};
-			/*
-			input.onchange = function(e){
-			  if (input.files.length === 0)
-					return;
-			  var filename = input.files[0].name;
-			  verifyFilename(path, filename);
-			}
-			*/
 		}
 		function getPath(filename) {
 			var filenameMaxLen = 32-1-1-4;

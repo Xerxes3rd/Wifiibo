@@ -50,7 +50,7 @@ typedef struct
 	char amiiboTailChar[AMIIBO_TAIL_LEN*2+1];
 } amiiboInfoStruct;
 
-typedef void (*StatusMessageCallback)(char *);
+typedef void (*StatusMessageCallback)(const char *);
 typedef void (*ProgressPercentCallback)(int);
 
 const uint8_t DynamicLockBytes[] = {0x01, 0x00, 0x0F, 0xBD};
