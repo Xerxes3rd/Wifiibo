@@ -6,11 +6,10 @@
 #include <Hash.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <SPIFFSEditor.h>
+#include <AsyncJson.h>
 #ifdef USE_SDFAT
 #include <SdFat.h>
 #endif
-#include <AsyncJson.h>
 #include <Adafruit_PN532Ex.h>
 #include <MFRC522Ex.h>
 #include <amiibo.h>
@@ -44,7 +43,6 @@ volatile bool triggerReadNFC = false;
 volatile bool triggerWriteNFC = false;
 volatile bool triggerCreateNFC = false;
 volatile bool triggerDummyWriteNFC = false;
-volatile bool triggerListAmiibo = false;
 const uint8_t NFCIDLen = 8;
 uint8_t createNFCID[NFCIDLen];
 amiitool atool((char*)keyfilename);
@@ -72,7 +70,6 @@ char nfcVersionStr[nfcVersionStrLen];
 // SKETCH BEGIN
 AsyncWebServer server(80);
 AsyncWebSocket websocket("/ws");
-AsyncEventSource events("/events");
 
 // MD5 Stuff documented for future reference
 // MD5 Functions
@@ -96,8 +93,10 @@ AsyncEventSource events("/events");
 // md5.calculate();
 // Serial.println(md5.toString()); // can be getChars() to getBytes() too. (16 chars) .. see above
 
-void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
-  if(type == WS_EVT_CONNECT){
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+{
+  if (type == WS_EVT_CONNECT)
+  {
     DBG_OUTPUT_PORT.printf("ws[%s][%u] connect\n", server->url(), client->id());
     //client->printf("Hello Client %u :)", client->id());
     //client->ping();
@@ -105,60 +104,84 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     WiFi.localIP().toString().toCharArray(ip, 24);
     client->printf("{\"status\":\"Connected\",\"serverip\":\"%s\",\"version\":\"%s\",\"nfcversion\":\"%s\"}", ip, versionStr, nfcVersionStr);
     checkRetailKey();
-  } else if(type == WS_EVT_DISCONNECT){
+  }
+  else if (type == WS_EVT_DISCONNECT)
+  {
     DBG_OUTPUT_PORT.printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
-  } else if(type == WS_EVT_ERROR){
-    DBG_OUTPUT_PORT.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
-  } else if(type == WS_EVT_PONG){
-    DBG_OUTPUT_PORT.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
-  } else if(type == WS_EVT_DATA){
-    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+  }
+  else if (type == WS_EVT_ERROR)
+  {
+    DBG_OUTPUT_PORT.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *)arg), (char *)data);
+  }
+  else if (type == WS_EVT_PONG)
+  {
+    DBG_OUTPUT_PORT.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len) ? (char *)data : "");
+  }
+  else if (type == WS_EVT_DATA)
+  {
+    AwsFrameInfo *info = (AwsFrameInfo *)arg;
     String msg = "";
-    if(info->final && info->index == 0 && info->len == len){
+    if (info->final && info->index == 0 && info->len == len)
+    {
       //the whole message is in a single frame and we got all of it's data
-      DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT) ? "text" : "binary", info->len);
 
-      if(info->opcode == WS_TEXT){
-        for(size_t i=0; i < info->len; i++) {
-          msg += (char) data[i];
-        }
-      } else {
-        char buff[3];
-        for(size_t i=0; i < info->len; i++) {
-          sprintf(buff, "%02x ", (uint8_t) data[i]);
-          msg += buff ;
+      if (info->opcode == WS_TEXT)
+      {
+        for (size_t i = 0; i < info->len; i++)
+        {
+          msg += (char)data[i];
         }
       }
-      DBG_OUTPUT_PORT.printf("%s\n",msg.c_str());
+      else
+      {
+        char buff[3];
+        for (size_t i = 0; i < info->len; i++)
+        {
+          sprintf(buff, "%02x ", (uint8_t)data[i]);
+          msg += buff;
+        }
+      }
+      DBG_OUTPUT_PORT.printf("%s\n", msg.c_str());
 
       parseClientJSON(client, msg);
-    } else {
+    }
+    else
+    {
       //message is comprised of multiple frames or the frame is split into multiple packets
-      if(info->index == 0){
-        if(info->num == 0)
-          DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+      if (info->index == 0)
+      {
+        if (info->num == 0)
+          DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
         DBG_OUTPUT_PORT.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
       }
 
-      DBG_OUTPUT_PORT.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      DBG_OUTPUT_PORT.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT) ? "text" : "binary", info->index, info->index + len);
 
-      if(info->opcode == WS_TEXT){
-        for(size_t i=0; i < info->len; i++) {
-          msg += (char) data[i];
-        }
-      } else {
-        char buff[3];
-        for(size_t i=0; i < info->len; i++) {
-          sprintf(buff, "%02x ", (uint8_t) data[i]);
-          msg += buff ;
+      if (info->opcode == WS_TEXT)
+      {
+        for (size_t i = 0; i < info->len; i++)
+        {
+          msg += (char)data[i];
         }
       }
-      DBG_OUTPUT_PORT.printf("%s\n",msg.c_str());
+      else
+      {
+        char buff[3];
+        for (size_t i = 0; i < info->len; i++)
+        {
+          sprintf(buff, "%02x ", (uint8_t)data[i]);
+          msg += buff;
+        }
+      }
+      DBG_OUTPUT_PORT.printf("%s\n", msg.c_str());
 
-      if((info->index + len) == info->len){
+      if ((info->index + len) == info->len)
+      {
         DBG_OUTPUT_PORT.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-        if(info->final){
-          DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        if (info->final)
+        {
+          DBG_OUTPUT_PORT.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT) ? "text" : "binary");
           parseClientJSON(client, msg);
         }
       }
@@ -222,14 +245,15 @@ bool dummyWriteTag_PN532() {
   return true;
 }
 
-void parseClientJSON(AsyncWebSocketClient * client, String msg)
+void parseClientJSON(AsyncWebSocketClient *client, String msg)
 {
   //DBG_OUTPUT_PORT.printf("[%u] get Text: %s\n", num, payload);
   StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& root = jsonBuffer.parseObject(msg);
-  
+  JsonObject &root = jsonBuffer.parseObject(msg);
+
   // Test if parsing succeeds.
-  if (!root.success()) {
+  if (!root.success())
+  {
     DBG_OUTPUT_PORT.println("parseObject() failed");
     return;
   }
@@ -257,18 +281,20 @@ void parseClientJSON(AsyncWebSocketClient * client, String msg)
         if (strlen(root["id"]) == NFCIDLen * 2)
         {
           DBG_OUTPUT_PORT.println("Triggering NFC create");
-          for (size_t count = 0; count < NFCIDLen; count++) {
-            sscanf((const char*)(root["id"])+(count*2), "%2hhx", &createNFCID[count]);
+          for (size_t count = 0; count < NFCIDLen; count++)
+          {
+            sscanf((const char *)(root["id"]) + (count * 2), "%2hhx", &createNFCID[count]);
           }
-          
+
           DBG_OUTPUT_PORT.print("Create amiibo: ID=0x");
-          for(size_t count = 0; count < NFCIDLen; count++)
+          for (size_t count = 0; count < NFCIDLen; count++)
             DBG_OUTPUT_PORT.printf("%02x", createNFCID[count]);
           DBG_OUTPUT_PORT.println("");
-          
+
           triggerCreateNFC = true;
         }
-        else {
+        else
+        {
           DBG_OUTPUT_PORT.print("Error in NFC create: ID length is ");
           DBG_OUTPUT_PORT.println(strlen(root["id"]));
         }
@@ -285,44 +311,37 @@ void parseClientJSON(AsyncWebSocketClient * client, String msg)
       }
       else if (!strcmp("getfileinfo", root["func"]))
       {
-        DBG_OUTPUT_PORT.println("Get file info");
+        DBG_OUTPUT_PORT.print("Get file info: ");
+        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
         getAmiiboInfo(root["filename"]);
       }
       else if (!strcmp("deleteamiibo", root["func"]))
       {
-        DBG_OUTPUT_PORT.println("Delete amiibo");
+        DBG_OUTPUT_PORT.print("Delete amiibo: ");
+        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
         deleteFile(root["filename"]);
       }
       else if (!strcmp("saveamiibo", root["func"]))
       {
-        DBG_OUTPUT_PORT.println("Save amiibo");
+        DBG_OUTPUT_PORT.print("Save amiibo: ");
+        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
         saveAmiibo(root["filename"]);
       }
-	  else if (!strcmp("listamiiboasync", root["func"]))
-	  {
-		DBG_OUTPUT_PORT.println("List amiibo (async)");
-		triggerListAmiibo = true;
-	  }
-	  else if (!strcmp("listamiibochunk", root["func"]))
-	  {
-		DBG_OUTPUT_PORT.println("List amiibo (chunk)");
-        String outStr;
-		String lastFilename = root["lastFilename"];
-        getAmiiboList_Chunk(&lastFilename, &outStr, MAX_COUNT_PER_MESSAGE, root.containsKey("printFiles"));
-        client->text(outStr);
-	  }
-      else if (!strcmp("listamiibo", root["func"]))
+      else if (!strcmp("listamiibochunk", root["func"]))
       {
-        DBG_OUTPUT_PORT.println("List amiibo");
+        DBG_OUTPUT_PORT.println("List amiibo (chunk)");
         String outStr;
-        getAmiiboList(&outStr);
+        String lastFilename = root["lastFilename"];
+        getAmiiboList_Chunk(&lastFilename, &outStr, MAX_COUNT_PER_MESSAGE, root.containsKey("printFiles"));
         client->text(outStr);
       }
       else if (!strcmp("configurewifi", root["func"]))
       {
         DBG_OUTPUT_PORT.println("Configure WiFi");
-        if (root.containsKey("ssid")) {
-          if (root.containsKey("passkey")) {
+        if (root.containsKey("ssid"))
+        {
+          if (root.containsKey("passkey"))
+          {
             strcpy(newWifiPasskey, root["passkey"]);
           }
           strcpy(newWifiSSID, root["ssid"]);
@@ -358,22 +377,22 @@ void checkRetailKey()
   }
 }
 
-void sendTagInfo()
-{  
-  StaticJsonBuffer<400> jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonObject& taginfo = root.createNestedObject("taginfo");
-  taginfo["name"] = String(atool.amiiboInfo.amiiboName);
-  taginfo["miiName"] = String(atool.amiiboInfo.amiiboOwnerMiiName);
-  taginfo["id"] = String(atool.amiiboInfo.amiiboHeadChar) + String(atool.amiiboInfo.amiiboTailChar);
-  sendJSON(&root);
+void getLoadedTagInfo(String *outStr)
+{
+  *outStr += "{\"taginfo\":{";
+  *outStr += "\"name\":\"";
+  *outStr += String(atool.amiiboInfo.amiiboName);
+  *outStr += "\",\"miiName\":\"";
+  *outStr += String(atool.amiiboInfo.amiiboOwnerMiiName);
+  *outStr += "\",\"id\":\"";
+  *outStr += String(atool.amiiboInfo.amiiboHeadChar) + String(atool.amiiboInfo.amiiboTailChar);
+  *outStr += "\"}}";
 }
 
-void sendJSON(JsonObject *root)
+void sendTagInfo()
 {
   String json;
-  root->printTo(json);
-  //DBG_OUTPUT_PORT.println(json);
+  getLoadedTagInfo(&json);
   websocket.textAll(json);
 }
 
@@ -383,40 +402,29 @@ void sendFunctionStatusCode(char *funcName, int code)
   DBG_OUTPUT_PORT.print(funcName);
   DBG_OUTPUT_PORT.print(": ");
   DBG_OUTPUT_PORT.print(code);
-  String json = "{";
-    json += "\"";
+  String json = "{\"";
     json += funcName;
     json += "\":\"";
     json += code;
-    json += "\"";
-    json += "}";
-  //webSocket.broadcastTXT(json);
+    json += "\"}";
   websocket.textAll(json);
 }
 
 void sendStatusCharArray(const char *statusmsg)
 {
   DBG_OUTPUT_PORT.println(statusmsg);
-  String json = "{";
-    json += "\"status\":\"";
+  String json = "{\"status\":\"";
     json += statusmsg;
-    json += "\"";
-    json += "}";
-  //webSocket.broadcastTXT(json);
+    json += "\"}";
   websocket.textAll(json);
 }
 
 void sendStatus(String statusmsg)
 {
   DBG_OUTPUT_PORT.println(statusmsg);
-  String json = "{";
-    json += "\"status\":\"";
+  String json = "{\"status\":\"";
     json += statusmsg;
-    json += "\"";
-    //json += ", \"analog\":"+String(analogRead(A0));
-    //json += ", \"gpio\":"+String((uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16)));
-    json += "}";
-  //webSocket.broadcastTXT(json);
+    json += "\"}";
   websocket.textAll(json);
 }
 
@@ -424,12 +432,9 @@ void updateProgress(int percent)
 {
   DBG_OUTPUT_PORT.print(percent);
   DBG_OUTPUT_PORT.println("%");
-  String json = "{";
-    json += "\"progress\":\"";
+  String json = "{\"progress\":\"";
     json += String(percent);
-    json += "\"";
-    json += "}";
-  //webSocket.broadcastTXT(json);
+    json += "\"}";
   websocket.textAll(json);
 }
 
@@ -499,7 +504,7 @@ void handleNFC()
   triggerDummyWriteNFC = false;
 }
 
-bool getAmiiboInfo(String filename)
+bool loadAmiiboFile(String filename)
 {
   int loadResult = 0;
   fs::File f = SPIFFS.open(filename, "r");
@@ -509,288 +514,133 @@ bool getAmiiboInfo(String filename)
     loadResult = atool.loadFileSPIFFS(&f, true);
     f.close();
   }
-  
-  if (loadResult >= 0)
+
+  return loadResult >= 0;
+}
+
+bool getAmiiboInfo(String filename)
+{
+  bool retval = loadAmiiboFile(filename);
+  if (retval)
   {
     sendTagInfo();
   }
-
-  return loadResult >= 0;
+  return retval;
 }
 
 bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMessage, bool printFiles)
 {
   bool retval = false;
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& tagInfo = root.createNestedArray("tagInfoList_Chunk");
   uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
   char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
-
   int count = 0;
   bool startAddingItems = false;
-  
-  if ((lastFilename == NULL) || (lastFilename->equals(""))) {
-	root["start"] = "true";
-	startAddingItems = true;
+  bool first = true;
+
+  //DynamicJsonBuffer jsonBuffer;
+  //JsonObject& root = jsonBuffer.createObject();
+  //JsonArray& tagInfo = root.createNestedArray("tagInfoList_Chunk");
+  *outStr += "{";
+  if ((lastFilename == NULL) || (lastFilename->equals(""))) 
+  {
+	  //root["start"] = "true";
+    *outStr += "\"start\":\"true\",";
+	  startAddingItems = true;
   }
 
+  *outStr += "\"tagInfoList_Chunk\":[";
   fs::Dir dir = SPIFFS.openDir("/");
   
-  while ((count < maxCountPerMessage) && dir.next())
+  while (((count < maxCountPerMessage) || (maxCountPerMessage <= 0)) && dir.next())
   {
     if (dir.fileName().endsWith(".bin"))
     {
-	  if (startAddingItems)
-	  {
+	    if (startAddingItems)
+	    {
         //DBG_OUTPUT_PORT.print("Opening file ");
         //DBG_OUTPUT_PORT.println(dir.fileName());
         fs::File f = dir.openFile("r");
-  	    if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
+  	    if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) 
+        {
           //DBG_OUTPUT_PORT.print("Reading file ");
           //DBG_OUTPUT_PORT.println(dir.fileName());
-  
-          JsonObject& tag = tagInfo.createNestedObject();
-          
-          tag["filename"] = dir.fileName();
-          
+
+          //JsonObject& tag = tagInfo.createNestedObject();
+          //tag["filename"] = dir.fileName();
+          //{"filename":"/Barioth and Ayuria.bin","id":"3503010002e50f02"}
+          if (first)
+          {
+            first = false;
+          }
+          else
+          {
+            *outStr += String(",");
+          }
+
+          *outStr += "{\"filename\":\"" + String(dir.fileName()) + "\",";
+
           f.seek(AMIIBO_ENC_CHARDATA_OFFSET, fs::SeekSet);
           f.readBytes((char*)bin, AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN);
-  
+
           for (int i = 0; i < AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN; i++)
           {
             sprintf(id+(i*2), "%02x", bin[i]);
           }
-  
-          tag["id"] = String(id);
-		  if (printFiles)
-		  {
-			DBG_OUTPUT_PORT.print(dir.fileName());
-			DBG_OUTPUT_PORT.print(": ");
-			DBG_OUTPUT_PORT.print(String(id));
-			DBG_OUTPUT_PORT.print("\n");
-		  }
-  		  count++;
+
+          //tag["id"] = String(id);
+          *outStr += "\"id\":\"" + String(id) + "\"}";
+		      if (printFiles)
+		      {
+			      DBG_OUTPUT_PORT.print(dir.fileName());
+		        DBG_OUTPUT_PORT.print(": ");
+		        DBG_OUTPUT_PORT.print(String(id));
+		        DBG_OUTPUT_PORT.print("\n");
+          }
+          count++;
         }
-  	    else {
-  		  if (f.size() != AMIIBO_KEY_FILE_SIZE)
-  		  {
-  		    DBG_OUTPUT_PORT.print("Skipping ");
-  		    DBG_OUTPUT_PORT.print(dir.fileName());
-  		    DBG_OUTPUT_PORT.println(": File size incorrect.");
-  		  }
-  	    }
+        else 
+        {
+  		    if (f.size() != AMIIBO_KEY_FILE_SIZE)
+  		    {
+  		      DBG_OUTPUT_PORT.print("Skipping ");
+  		      DBG_OUTPUT_PORT.print(dir.fileName());
+  		      DBG_OUTPUT_PORT.println(": File size incorrect.");
+  		    }
+        }
         f.close();
-	  }
-	  if (dir.fileName().equalsIgnoreCase(*lastFilename))
-	  {
-		startAddingItems = true;
-	  }
+	    }
+	    if (dir.fileName().equalsIgnoreCase(*lastFilename))
+	    {
+		    startAddingItems = true;
+	    }
     }
   }
   
   if (count < maxCountPerMessage)
   {
-	// End
-	root["end"] = "true";
-	retval = false;
+	  // End
+	  //root["end"] = "true";
+    *outStr += "],\"end\":\"true\"}";
+	  retval = false;
   }
   else
   {
-	retval = true;
+    *outStr += "]}";
+	  retval = true;
   }
-
-  //String json;
-  //root.prettyPrintTo(json);
-  //DBG_OUTPUT_PORT.println(json);
 
   DBG_OUTPUT_PORT.print("Sending ");
   DBG_OUTPUT_PORT.print(count);
   DBG_OUTPUT_PORT.println(" amiibo entries.");
 
-  if (outStr != NULL)
-    root.printTo(*outStr);
+  //if (outStr != NULL)
+  //  root.printTo(*outStr);
 
   DBG_OUTPUT_PORT.print("Done sending ");
   DBG_OUTPUT_PORT.print(count);
   DBG_OUTPUT_PORT.println(" amiibo entries.");
 
   return retval;
-}
-
-
-bool getAmiiboList_Async(fs::Dir *dir, bool start, int maxCountPerMessage)
-{
-  bool retval = false;
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& tagInfo = root.createNestedArray("tagInfoList_Async");
-  uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
-  char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
-
-  int count = 0;
-  if (start) {
-	root["start"] = "true";
-  }
-  while ((count < maxCountPerMessage) && dir->next())
-  {
-    if (dir->fileName().endsWith(".bin"))
-    {
-      //DBG_OUTPUT_PORT.print("Opening file ");
-      //DBG_OUTPUT_PORT.println(dir->fileName());
-      fs::File f = dir->openFile("r");
-      //if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE_HASH))) {
-	  if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
-        //DBG_OUTPUT_PORT.print("Reading file ");
-        //DBG_OUTPUT_PORT.println(dir->fileName());
-
-        JsonObject& tag = tagInfo.createNestedObject();
-        
-        tag["filename"] = dir->fileName();
-        
-        f.seek(AMIIBO_ENC_CHARDATA_OFFSET, fs::SeekSet);
-        f.readBytes((char*)bin, AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN);
-
-        for (int i = 0; i < AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN; i++)
-        {
-          sprintf(id+(i*2), "%02x", bin[i]);
-        }
-
-        tag["id"] = String(id);
-		//DBG_OUTPUT_PORT.print(dir->fileName());
-		//DBG_OUTPUT_PORT.print(": ");
-		//DBG_OUTPUT_PORT.print(String(id));
-		//DBG_OUTPUT_PORT.print("\n");
-		count++;
-      }
-	  else {
-		if (f.size() != AMIIBO_KEY_FILE_SIZE)
-		{
-		  DBG_OUTPUT_PORT.print("Skipping ");
-		  DBG_OUTPUT_PORT.print(dir->fileName());
-		  DBG_OUTPUT_PORT.println(": File size incorrect.");
-		}
-	  }
-      f.close();
-    }
-  }
-  
-  if (count < maxCountPerMessage)
-  {
-	// End
-	root["end"] = "true";
-	retval = false;
-  }
-  else
-  {
-	retval = true;
-  }
-
-  //String json;
-  //root.prettyPrintTo(json);
-  //DBG_OUTPUT_PORT.println(json);
-
-  DBG_OUTPUT_PORT.print("Sending ");
-  DBG_OUTPUT_PORT.print(count);
-  DBG_OUTPUT_PORT.println(" amiibo entries.");
-  String outStr;
-  root.printTo(outStr);
-  websocket.textAll(outStr);
-	
-  return retval;
-}
-
-void getAmiiboList(String *outStr)
-{
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& tagInfo = root.createNestedArray("tagInfoList");
-  uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
-  char id[(AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN)*2+1];
-
-  fs::Dir dir = SPIFFS.openDir("/");
-  while (dir.next())
-  {
-    if (dir.fileName().endsWith(".bin"))
-    {
-      //DBG_OUTPUT_PORT.print("Opening file ");
-      //DBG_OUTPUT_PORT.println(dir.fileName());
-      fs::File f = dir.openFile("r");
-      //if (f && ((f.size() >= NFC3D_AMIIBO_SIZE_SMALL) && (f.size() <= NFC3D_AMIIBO_SIZE_HASH))) {
-	  if (amiitool::isSPIFFSFilePossiblyAmiibo(&f)) {
-        //DBG_OUTPUT_PORT.print("Reading file ");
-        //DBG_OUTPUT_PORT.println(dir.fileName());
-
-        JsonObject& tag = tagInfo.createNestedObject();
-        
-        tag["filename"] = dir.fileName();
-        
-        f.seek(AMIIBO_ENC_CHARDATA_OFFSET, fs::SeekSet);
-        f.readBytes((char*)bin, AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN);
-
-        for (int i = 0; i < AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN; i++)
-        {
-          sprintf(id+(i*2), "%02x", bin[i]);
-        }
-
-        tag["id"] = String(id);
-		//DBG_OUTPUT_PORT.print(dir.fileName());
-		//DBG_OUTPUT_PORT.print(": ");
-		//DBG_OUTPUT_PORT.print(String(id));
-		//DBG_OUTPUT_PORT.print("\n");
-      }
-      f.close();
-    }
-  }
-
-  //String json;
-  //root.prettyPrintTo(json);
-  //DBG_OUTPUT_PORT.println(json);
-
-  if (outStr != NULL)
-    root.printTo(*outStr);
-}
-
-void getAmiiboList2(String *outStr)
-{
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& tagInfo = root.createNestedArray("tagInfoList");
-  int loadResult = 0;
-
-  fs::Dir dir = SPIFFS.openDir("/");
-  while (dir.next())
-  {
-    if (dir.fileName().endsWith(".bin"))
-    {
-      DBG_OUTPUT_PORT.print("Opening file ");
-      DBG_OUTPUT_PORT.println(dir.fileName());
-      fs::File f = dir.openFile("r");
-
-      if (f)
-      {
-        loadResult = atool.loadFileSPIFFS(&f, true);
-        f.close();
-      }
-      
-      if (loadResult >= 0)
-      {
-        JsonObject& tag = tagInfo.createNestedObject();
-      
-        tag["filename"] = dir.fileName();
-        tag["name"] = String(atool.amiiboInfo.amiiboName);
-        tag["miiName"] = String(atool.amiiboInfo.amiiboOwnerMiiName);
-        tag["id"] = String(atool.amiiboInfo.amiiboHeadChar) + String(atool.amiiboInfo.amiiboTailChar);
-      }
-    }
-  }
-  
-  //String json;
-  //root.prettyPrintTo(json);
-  //DBG_OUTPUT_PORT.println(json);
-
-  if (outStr != NULL)
-    root.printTo(*outStr);
 }
 
 void deleteFile(String filename) {
@@ -801,27 +651,23 @@ void deleteFile(String filename) {
 }
 
 void getWifiStatusInfo(String *outStr, bool scan) {
-  StaticJsonBuffer<400> jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  root["wifistatus"] = WiFi.status();
+  *outStr += "{\"wifistatus\":";
+  *outStr += String((WiFi.status() == WL_CONNECTED ? "true" : "false"));
   if (scan) {
-    JsonArray& scanresults = root.createNestedArray("scanresults");
+    *outStr += ",\"scanresults\":[";
     int numNetworks = WiFi.scanNetworks(false, true);
     for (int i = 0; i < numNetworks; i++) {
-      JsonObject& network = scanresults.createNestedObject();
-      network["ssid"] = WiFi.SSID(i);
-      //network["channel"] = WiFi.channel(i);
-      network["rssi"] = WiFi.RSSI(i);
-      network["encryptionType"] = WiFi.encryptionType(i);
+      *outStr += "{\"ssid\":\"";
+      *outStr += String(WiFi.SSID(i));
+      *outStr += "\",\"rssi\":";
+      *outStr += String(WiFi.RSSI(i));
+      *outStr += ",\"encryptionType\":";
+      *outStr += String(WiFi.encryptionType(i));
+      *outStr += "}";
+      *outStr += String(((i == (numNetworks - 1)) ? "]" : ","));
     }
+    *outStr += "}";
   }
-
-  //String json;
-  //root.prettyPrintTo(json);
-  //DBG_OUTPUT_PORT.println(json);
-
-  if (outStr != NULL)
-    root.printTo(*outStr);
 }
 
 void saveAmiibo(String filename) {
@@ -933,21 +779,6 @@ void setup(){
 
   handleReconnectWifi(true);
   
-  //Send OTA events to the browser
-  ArduinoOTA.onStart([]() { events.send("Update Start", "ota"); });
-  ArduinoOTA.onEnd([]() { events.send("Update End", "ota"); });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    char p[32];
-    sprintf(p, "Progress: %u%%\n", (progress/(total/100)));
-    events.send(p, "ota");
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    if(error == OTA_AUTH_ERROR) events.send("Auth Failed", "ota");
-    else if(error == OTA_BEGIN_ERROR) events.send("Begin Failed", "ota");
-    else if(error == OTA_CONNECT_ERROR) events.send("Connect Failed", "ota");
-    else if(error == OTA_RECEIVE_ERROR) events.send("Recieve Failed", "ota");
-    else if(error == OTA_END_ERROR) events.send("End Failed", "ota");
-  });
   ArduinoOTA.setHostname(hostName);
   ArduinoOTA.begin();
 
@@ -966,29 +797,56 @@ void setup(){
   websocket.onEvent(onWsEvent);
   server.addHandler(&websocket);
 
-  events.onConnect([](AsyncEventSourceClient *client){
-    client->send("hello!",NULL,millis(),1000);
-  });
-  server.addHandler(&events);
-
-  server.addHandler(new SPIFFSEditor(http_username,http_password));
-
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", String(ESP.getFreeHeap()));
   });
 
   server.on("/getAmiiboList", HTTP_GET, [](AsyncWebServerRequest *request){
     String outStr;
-    getAmiiboList(&outStr);
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", outStr);
+    String lastFilename;
+    int maxCount = MAX_COUNT_PER_MESSAGE;
+    bool printFiles = false;
+    if (request->hasParam("lastFilename"))
+      lastFilename = request->getParam("lastFilename")->value();
+    if (request->hasParam("maxCount"))
+      maxCount = atoi(request->getParam("maxCount")->value().c_str());
+    if (request->hasParam("printFiles"))
+      printFiles = true;
+    DBG_OUTPUT_PORT.print("getAmiiboList: ");
+    DBG_OUTPUT_PORT.print("lastFilename=");
+    DBG_OUTPUT_PORT.print(lastFilename);
+    DBG_OUTPUT_PORT.print(",maxCount=");
+    DBG_OUTPUT_PORT.print(maxCount);
+    DBG_OUTPUT_PORT.print(",printFiles=");
+    DBG_OUTPUT_PORT.println(printFiles);
+    getAmiiboList_Chunk(&lastFilename, &outStr, maxCount, printFiles);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", outStr);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
+  });
+
+  server.on("/getAmiiboInfo", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (request->hasParam("filename")) {
+      DBG_OUTPUT_PORT.print("getAmiiboInfo: ");
+      DBG_OUTPUT_PORT.print("filename=");
+      DBG_OUTPUT_PORT.println(request->getParam("filename")->value());
+      if (loadAmiiboFile(request->getParam("filename")->value())) {
+        String json;
+        getLoadedTagInfo(&json);
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+      }
+      else {
+        DBG_OUTPUT_PORT.println("getAmiiboInfo: file not found");
+      }
+    }
   });
 
   server.on("/getWifiStatus", HTTP_GET, [](AsyncWebServerRequest *request){
     String outStr;
     getWifiStatusInfo(&outStr, false);
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", outStr);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", outStr);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
   });
@@ -1001,7 +859,7 @@ void setup(){
   });
 
   server.on("/getWifiScanResults", HTTP_GET, [](AsyncWebServerRequest *request){
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", wifiScanJSON);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", wifiScanJSON);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
   });
@@ -1094,15 +952,6 @@ void setup(){
           //sendStatusCharArray("Unknown error during amiibo upload.");
         }
     }
-  });
-  
-
-  server.on("/getAmiiboList2", HTTP_GET, [](AsyncWebServerRequest *request){
-    String outStr;
-    getAmiiboList2(&outStr);
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", outStr);
-    response->addHeader("Access-Control-Allow-Origin", "*");
-    request->send(response);
   });
   
   //server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm");
@@ -1247,18 +1096,5 @@ void loop(){
       websocket.textAll(wifiScanJSON);
       lastWifiScanMillis = millis();
     }
-  }
-  
-  if (triggerListAmiibo)
-  {
-	DBG_OUTPUT_PORT.println("Listing amiibo (async).");
-    bool start = true;
-	fs::Dir dir = SPIFFS.openDir("/");
-	while (getAmiiboList_Async(&dir, start, MAX_COUNT_PER_MESSAGE)) {
-		yield();
-		start = false;
-	}
-	triggerListAmiibo = false;
-	DBG_OUTPUT_PORT.println("Completed listing amiibo (async).");
   }
 }

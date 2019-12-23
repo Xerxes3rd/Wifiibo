@@ -916,7 +916,7 @@
 			connection.onopen = function () {
 				setStatusMessage('Connected to ' + getWSConnURL() + ', requesting amiibo list.');
 				
-				sendAmiiboFunc('listamiibochunk', true);
+				//sendAmiiboFunc('listamiibochunk', true);
 				checkGetFileInfo();
 			};
 			connection.onerror = function (error) {
@@ -960,54 +960,8 @@
 					}
 				}
 				if (obj["tagInfoList_Chunk"] != null) {
-					var listRoot = "tagInfoList_Chunk";
-					if (obj["start"]) {
-						getAmiiboJSONDB();
-						lastAmiiboList = {};
-						lastAmiiboList["start"] = true;
-						lastAmiiboList[listRoot] = new Array();
-					}
-					lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
-					setStatusMessage("Received chunk info for " + lastAmiiboList[listRoot].length + " amiibos...");
-					if (obj["end"]) {
-						lastAmiiboList["end"] = true;
-						setStatusMessage("");
-						processAmiiboList(lastAmiiboList[listRoot]);
-						var page = document.getElementsByClassName('all-products')[0];
-						if (page.className.indexOf('visible') === -1) {
-							page.className += ' visible';
-						}
-					}
-					else {
-						setProgress(0);
-						console.log('listamiibochunk');
-						var lastFilename = obj[listRoot][obj[listRoot].length - 1]["filename"];
-						var msg = { "func":"listamiibochunk", "lastFilename":lastFilename };
-						connection.send(JSON.stringify(msg));
-						console.log("Test");
-					}
+					processAmiiboListChunk(obj, getAmiiboListWS);
 				}
-				if (obj["tagInfoList_Async"] != null) {
-					var listRoot = "tagInfoList_Async";
-					if (obj["start"]) {
-						getAmiiboJSONDB();
-						lastAmiiboList = {};
-						lastAmiiboList["start"] = true;
-						lastAmiiboList[listRoot] = new Array();
-					}
-					lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
-					setStatusMessage("Received async info for " + lastAmiiboList[listRoot].length + " amiibos...");
-					if (obj["end"]) {
-						lastAmiiboList["end"] = true;
-						setStatusMessage("");
-						processAmiiboList(lastAmiiboList[listRoot]);
-						var page = document.getElementsByClassName('all-products')[0];
-						if (page.className.indexOf('visible') === -1) {
-							page.className += ' visible';
-						}
-					}
-				}
-
 				if (obj["saveAmiibo"] != null) {
 					if (obj["saveAmiibo"] >= 0) {
 						Array.prototype.forEach.call(document.getElementsByClassName("saveFile"), (elem) => {
@@ -1905,15 +1859,6 @@
 				xmlHttp.send(formData);
 			}
 
-			function httpPostProcessRequest(){
-			  if (xmlHttp.readyState === 4) {
-					if (xmlHttp.status !== 200) 
-						alert("ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
-					else {
-						uploadFile();
-					}
-			  }
-			}
 			button.onclick = function(e){
 			  fileIndex = 0;
 			  uploadFile();
@@ -2101,6 +2046,53 @@
 			document.getElementById("mySidenav").style.width = "0";
 			document.getElementById("main").style.marginLeft = "0";
 		}
+		function processAmiiboListChunk(obj, getMoreFunc) {
+			if (obj["tagInfoList_Chunk"] != null) {
+				var listRoot = "tagInfoList_Chunk";
+				if (obj["start"]) {
+					getAmiiboJSONDB();
+					lastAmiiboList = {};
+					lastAmiiboList["start"] = true;
+					lastAmiiboList[listRoot] = new Array();
+				}
+				lastAmiiboList[listRoot] = lastAmiiboList[listRoot].concat(obj[listRoot]);
+				setStatusMessage("Received chunk info for " + lastAmiiboList[listRoot].length + " amiibos...");
+				if (obj["end"]) {
+					lastAmiiboList["end"] = true;
+					setStatusMessage("");
+					processAmiiboList(lastAmiiboList[listRoot]);
+					var page = document.getElementsByClassName('all-products')[0];
+					if (page.className.indexOf('visible') === -1) {
+						page.className += ' visible';
+					}
+				}
+				else {
+					setProgress(0);
+					console.log('listamiibochunk');
+					var lastFilename = obj[listRoot][obj[listRoot].length - 1]["filename"];
+					getMoreFunc(lastFilename);
+				}
+			}
+		}
+		function getAmiiboListWS(lastFilename) {
+			var msg = { "func":"listamiibochunk", "lastFilename":lastFilename };
+			connection.send(JSON.stringify(msg));
+		}
+		function getAmiiboListHTTP(lastFilename) {
+			xmlHttp = new XMLHttpRequest();
+			xmlHttp.onreadystatechange = function() {
+				if (xmlHttp.readyState === XMLHttpRequest.DONE) {
+					if (xmlHttp.status !== 200) 
+						console.log("getAmiiboListHTTP: ERROR["+xmlHttp.status+"]: "+xmlHttp.responseText);
+					else {
+						var obj = JSON.parse(this.responseText);
+						processAmiiboListChunk(obj, getAmiiboListHTTP);
+					}
+				}
+			}
+			xmlHttp.open("GET", 'http://'+getHost()+'/getAmiiboList' + (lastFilename ? '?lastFilename=' + encodeURIComponent(lastFilename) : ''), true);
+			xmlHttp.send();
+		}
 		function onBodyLoad() {
 			getURLParams();
 			windowHashChange();
@@ -2109,6 +2101,7 @@
 			createFileUploader("uploader");
 			generateSingleProductHTML();
 			document.getElementById("toggleprint").checked = urlParams["print"];
+			getAmiiboListHTTP();
 		}
 		function removeParam(key, sourceURL) {
 			var rtn = sourceURL.split("?")[0],
