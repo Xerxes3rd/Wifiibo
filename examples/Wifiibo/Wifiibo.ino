@@ -4,6 +4,7 @@
 #include <ArduinoOTA.h>
 #include "FS.h"
 #include <Hash.h>
+#include <ArduinoJson.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
@@ -14,6 +15,7 @@
 #include <MFRC522Ex.h>
 #include <amiibo.h>
 #include <amiitool.h>
+//#include "jsmn.h"
 
 //#include <spiffs/spiffs_config.h> // For SPIFFS_OBJ_NAME_LEN
 #ifndef SPIFFS_OBJ_NAME_LEN
@@ -63,7 +65,7 @@ volatile bool shouldReboot = false;
 
 const int MAX_COUNT_PER_MESSAGE = 25;
 
-const char* versionStr = "1.36";
+const char* versionStr = "1.39";
 const uint32_t nfcVersionStrLen = 64;
 char nfcVersionStr[nfcVersionStrLen];
 
@@ -247,117 +249,145 @@ bool dummyWriteTag_PN532() {
 
 void parseClientJSON(AsyncWebSocketClient *client, String msg)
 {
-  //DBG_OUTPUT_PORT.printf("[%u] get Text: %s\n", num, payload);
+  const char *funcStr = NULL;
+  const char *filenameStr = NULL;
+  const char *idStr = NULL;
+  const char *lastFilenameStr = NULL;
+  const char *ssid = NULL;
+  const char *passkey = NULL;
+  bool printFiles = false;
+
+#if ARDUINOJSON_VERSION_MAJOR == 5
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject &root = jsonBuffer.parseObject(msg);
-
-  // Test if parsing succeeds.
   if (!root.success())
   {
     DBG_OUTPUT_PORT.println("parseObject() failed");
     return;
   }
-  else
+#else
+  DynamicJsonDocument root(1024);
+  DeserializationError error = deserializeJson(root, msg);
+  if (error)
   {
-    if (root.containsKey("func"))
+    DBG_OUTPUT_PORT.print("deserializeJson() failed");
+    return;
+  }
+#endif
+
+  funcStr = root["func"];
+  filenameStr = root["filename"];
+  idStr = root["id"];
+  lastFilenameStr = root["lastFilename"];
+  ssid = root["ssid"];
+  passkey = root["passkey"];
+  printFiles = root.containsKey("printFiles");
+
+  //DBG_OUTPUT_PORT.println("parseClientJSON parse results:");
+  //if (funcStr != NULL) { DBG_OUTPUT_PORT.print(" funcStr: "); DBG_OUTPUT_PORT.println(funcStr); }
+  //if (filenameStr != NULL) { DBG_OUTPUT_PORT.print(" filenameStr: "); DBG_OUTPUT_PORT.println(filenameStr); }
+  //if (idStr != NULL) { DBG_OUTPUT_PORT.print(" idStr: "); DBG_OUTPUT_PORT.println(idStr); }
+  //if (lastFilenameStr != NULL) { DBG_OUTPUT_PORT.print(" lastFilenameStr: "); DBG_OUTPUT_PORT.println(lastFilenameStr); }
+  //if (ssid != NULL) { DBG_OUTPUT_PORT.print(" ssid: "); DBG_OUTPUT_PORT.println(ssid); }
+  //if (passkey != NULL) { DBG_OUTPUT_PORT.print(" passkey: "); DBG_OUTPUT_PORT.println(passkey); }
+  //if (printFiles) DBG_OUTPUT_PORT.println(" printFiles: true");
+
+  if (funcStr == NULL)
+  {
+    DBG_OUTPUT_PORT.println("no func found");
+    return;
+  }
+
+  if (!strcmp("readnfc", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Triggering NFC read");
+    triggerReadNFC = true;
+  }
+  else if (!strcmp("cancelread", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Canceling NFC read");
+    atool.cancelNFCRead();
+  }
+  else if (!strcmp("writenfc", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Triggering NFC write");
+    triggerWriteNFC = true;
+  }
+  else if (!strcmp("createamiibo", funcStr))
+  {
+    if (strlen(idStr) == NFCIDLen * 2)
     {
-      if (!strcmp("readnfc", root["func"]))
+      DBG_OUTPUT_PORT.println("Triggering NFC create");
+      for (size_t count = 0; count < NFCIDLen; count++)
       {
-        DBG_OUTPUT_PORT.println("Triggering NFC read");
-        triggerReadNFC = true;
+        sscanf((const char *)(idStr) + (count * 2), "%2hhx", &createNFCID[count]);
       }
-      else if (!strcmp("cancelread", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Canceling NFC read");
-        atool.cancelNFCRead();
-      }
-      else if (!strcmp("writenfc", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Triggering NFC write");
-        triggerWriteNFC = true;
-      }
-      else if (!strcmp("createamiibo", root["func"]))
-      {
-        if (strlen(root["id"]) == NFCIDLen * 2)
-        {
-          DBG_OUTPUT_PORT.println("Triggering NFC create");
-          for (size_t count = 0; count < NFCIDLen; count++)
-          {
-            sscanf((const char *)(root["id"]) + (count * 2), "%2hhx", &createNFCID[count]);
-          }
 
-          DBG_OUTPUT_PORT.print("Create amiibo: ID=0x");
-          for (size_t count = 0; count < NFCIDLen; count++)
-            DBG_OUTPUT_PORT.printf("%02x", createNFCID[count]);
-          DBG_OUTPUT_PORT.println("");
+      DBG_OUTPUT_PORT.print("Create amiibo: ID=0x");
+      for (size_t count = 0; count < NFCIDLen; count++)
+        DBG_OUTPUT_PORT.printf("%02x", createNFCID[count]);
+      DBG_OUTPUT_PORT.println("");
 
-          triggerCreateNFC = true;
-        }
-        else
-        {
-          DBG_OUTPUT_PORT.print("Error in NFC create: ID length is ");
-          DBG_OUTPUT_PORT.println(strlen(root["id"]));
-        }
-      }
-      else if (!strcmp("cancelwrite", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Canceling NFC write");
-        atool.cancelNFCWrite();
-      }
-      else if (!strcmp("dummywritenfc", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Triggering dummy NFC write");
-        triggerDummyWriteNFC = true;
-      }
-      else if (!strcmp("getfileinfo", root["func"]))
-      {
-        DBG_OUTPUT_PORT.print("Get file info: ");
-        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
-        getAmiiboInfo(root["filename"]);
-      }
-      else if (!strcmp("deleteamiibo", root["func"]))
-      {
-        DBG_OUTPUT_PORT.print("Delete amiibo: ");
-        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
-        deleteFile(root["filename"]);
-      }
-      else if (!strcmp("saveamiibo", root["func"]))
-      {
-        DBG_OUTPUT_PORT.print("Save amiibo: ");
-        DBG_OUTPUT_PORT.println((const char *)root["filename"]);
-        saveAmiibo(root["filename"]);
-      }
-      else if (!strcmp("listamiibochunk", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("List amiibo (chunk)");
-        String outStr;
-        String lastFilename = root["lastFilename"];
-        getAmiiboList_Chunk(&lastFilename, &outStr, MAX_COUNT_PER_MESSAGE, root.containsKey("printFiles"));
-        client->text(outStr);
-      }
-      else if (!strcmp("configurewifi", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Configure WiFi");
-        if (root.containsKey("ssid"))
-        {
-          if (root.containsKey("passkey"))
-          {
-            strcpy(newWifiPasskey, root["passkey"]);
-          }
-          strcpy(newWifiSSID, root["ssid"]);
-          reconnectWifi = true;
-        }
-      }
-      else if (!strcmp("triggerScanWifi", root["func"]))
-      {
-        DBG_OUTPUT_PORT.println("Scan WiFi");
-        scanWifi = true;
-      }
+      triggerCreateNFC = true;
     }
     else
     {
-      DBG_OUTPUT_PORT.println("no func found");
+      DBG_OUTPUT_PORT.print("Error in NFC create: ID length is ");
+      DBG_OUTPUT_PORT.println(strlen(idStr));
     }
+  }
+  else if (!strcmp("cancelwrite", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Canceling NFC write");
+    atool.cancelNFCWrite();
+  }
+  else if (!strcmp("dummywritenfc", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Triggering dummy NFC write");
+    triggerDummyWriteNFC = true;
+  }
+  else if (!strcmp("getfileinfo", funcStr))
+  {
+    DBG_OUTPUT_PORT.print("Get file info: ");
+    DBG_OUTPUT_PORT.println((const char *)filenameStr);
+    getAmiiboInfo(filenameStr);
+  }
+  else if (!strcmp("deleteamiibo", funcStr))
+  {
+    DBG_OUTPUT_PORT.print("Delete amiibo: ");
+    DBG_OUTPUT_PORT.println((const char *)filenameStr);
+    deleteFile(filenameStr);
+  }
+  else if (!strcmp("saveamiibo", funcStr))
+  {
+    DBG_OUTPUT_PORT.print("Save amiibo: ");
+    DBG_OUTPUT_PORT.println((const char *)filenameStr);
+    saveAmiibo(filenameStr);
+  }
+  else if (!strcmp("listamiibochunk", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("List amiibo (chunk)");
+    String outStr;
+    getAmiiboList_Chunk(lastFilenameStr, &outStr, MAX_COUNT_PER_MESSAGE, printFiles);
+    client->text(outStr);
+  }
+  else if (!strcmp("configurewifi", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Configure WiFi");
+    if (ssid != NULL)
+    {
+      if (passkey != NULL)
+      {
+        strcpy(newWifiPasskey, passkey);
+      }
+      strcpy(newWifiSSID, ssid);
+      reconnectWifi = true;
+    }
+  }
+  else if (!strcmp("triggerScanWifi", funcStr))
+  {
+    DBG_OUTPUT_PORT.println("Scan WiFi");
+    scanWifi = true;
   }
 }
 
@@ -528,7 +558,7 @@ bool getAmiiboInfo(String filename)
   return retval;
 }
 
-bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMessage, bool printFiles)
+bool getAmiiboList_Chunk(const char *lastFilename, String *outStr, int maxCountPerMessage, bool printFiles)
 {
   bool retval = false;
   uint8_t bin[AMIIBO_HEAD_LEN+AMIIBO_TAIL_LEN];
@@ -536,16 +566,21 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMe
   int count = 0;
   bool startAddingItems = false;
   bool first = true;
+  String lastFilenameStr;
 
   //DynamicJsonBuffer jsonBuffer;
   //JsonObject& root = jsonBuffer.createObject();
   //JsonArray& tagInfo = root.createNestedArray("tagInfoList_Chunk");
   *outStr += "{";
-  if ((lastFilename == NULL) || (lastFilename->equals(""))) 
+  if ((lastFilename == NULL) || (strlen(lastFilename) == 0)) 
   {
 	  //root["start"] = "true";
     *outStr += "\"start\":\"true\",";
 	  startAddingItems = true;
+  }
+  else
+  {
+    lastFilenameStr = String(lastFilename);
   }
 
   *outStr += "\"tagInfoList_Chunk\":[";
@@ -609,7 +644,7 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMe
         }
         f.close();
 	    }
-	    if (dir.fileName().equalsIgnoreCase(*lastFilename))
+	    if ((lastFilename != NULL) && (dir.fileName().equalsIgnoreCase(lastFilenameStr)))
 	    {
 		    startAddingItems = true;
 	    }
@@ -619,7 +654,6 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMe
   if (count < maxCountPerMessage)
   {
 	  // End
-	  //root["end"] = "true";
     *outStr += "],\"end\":\"true\"}";
 	  retval = false;
   }
@@ -629,14 +663,7 @@ bool getAmiiboList_Chunk(String *lastFilename, String *outStr, int maxCountPerMe
 	  retval = true;
   }
 
-  DBG_OUTPUT_PORT.print("Sending ");
-  DBG_OUTPUT_PORT.print(count);
-  DBG_OUTPUT_PORT.println(" amiibo entries.");
-
-  //if (outStr != NULL)
-  //  root.printTo(*outStr);
-
-  DBG_OUTPUT_PORT.print("Done sending ");
+  DBG_OUTPUT_PORT.print("Encoding ");
   DBG_OUTPUT_PORT.print(count);
   DBG_OUTPUT_PORT.println(" amiibo entries.");
 
@@ -819,7 +846,7 @@ void setup(){
     DBG_OUTPUT_PORT.print(maxCount);
     DBG_OUTPUT_PORT.print(",printFiles=");
     DBG_OUTPUT_PORT.println(printFiles);
-    getAmiiboList_Chunk(&lastFilename, &outStr, maxCount, printFiles);
+    getAmiiboList_Chunk(lastFilename.c_str(), &outStr, maxCount, printFiles);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", outStr);
     response->addHeader("Access-Control-Allow-Origin", "*");
     request->send(response);
