@@ -62,9 +62,12 @@ Starting with 1.40, firmware binaries are created for both the D1 Mini and D1 Li
 
 ### Compiling
 Wifiibo depends on a number of additional Arduino libraries (which are needed if you want to compile Wifiibo):
-* [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
+* [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP)
+  * Currently-used version: **1.2.2**
 * [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
+  * Currently-used version: **1.2.3**
 * [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
+  * Currently-used version: **6.13.0**
   * Either version 5 or 6 should be supported
 
 Wifiibo also uses modified versions of the following libraries; they are included with Wifiibo, so you don't need to download them separately (they also use different library names so they will coexist with existing copies):
@@ -73,7 +76,7 @@ Wifiibo also uses modified versions of the following libraries; they are include
 * [mbedtls](https://tls.mbed.org/)
   
 #### IDE
-In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version 2.5.0 installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  Hint: After the inital upload, you can place existing amiibo dumps and the retail key file into the sketch Data directory, and use the "ESP8266 Sketch Data Upload" option in the "Tools" menu to upload them all at once.
+In order to compile the Wifiibo software, you'll need the Arduino IDE.  Ensure you have the ESP8266 board support package version **2.6.3** installed (refer to [the main ESP8266 Arduino page](https://github.com/esp8266/Arduino) for instructions on setting it up).  Clone this repository into the 'libraries' folder in your Arduino sketch folder.  Open the Arduino IDE, and you'll find Wifiibo under the "Examples" menu.  After selecting your ESP8266 board in the IDE, click the Upload button to flash Wifiibo to the ESP8266.  Hint: After the inital upload, you can place existing amiibo dumps and the retail key file into the sketch Data directory, and use the "ESP8266 Sketch Data Upload" option in the "Tools" menu to upload them all at once.
 
 ## Using Wifiibo
 When Wifiibo starts, if your ESP8266 isn't connected to Wifi, it will start up its own hotspot called "Wifiibo."  Connect to the hotspot using your phone or computer, then open a web browser and go to http://192.168.4.1 to access Wifiibo.  Click on the "Configure Wifi" button, enter your Wifi network credentials, and click submit.
