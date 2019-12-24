@@ -362,6 +362,7 @@
 		
 				max-width: 280px;
 				margin-bottom: 20px;
+				margin-right: 0px;
 		
 				list-style: none;
 			}
@@ -830,7 +831,7 @@
 		`;
 		
 		var pct = 0;
-		var webVer = "1.39";
+		var webVer = "1.40";
 
 		var connection;
 		var amiiboDBJSON;
@@ -1954,8 +1955,8 @@
 			
 			var currentChecks = null;
 			
-			if ((filters['localdumpsonly'] != null) && (filters['localdumpsonly'].length > 0)) {
-				if (Object.values(filters['localdumpsonly'])[0].toLowerCase() == "true") {
+			if ((filters['isdump'] != null) && (filters['isdump'].length > 0)) {
+				if (Object.values(filters['isdump'])[0].toLowerCase() == "true") {
 					checked = "checked";
 				}
 				console.log("generateDumpFilter: Matched filter.");
@@ -1963,7 +1964,7 @@
 			
 			//checked = "checked";
 			
-			html+= '<label><input class="filtercheckbox" type="checkbox" name="localdumpsonly" value="'+val+'" onclick="filtercheckboxClick(this)" '+checked+'>'+Title+'</label>'
+			html+= '<label><input class="filtercheckbox" type="checkbox" name="isdump" value="'+val+'" onclick="filtercheckboxClick(this)" '+checked+'>'+Title+'</label>'
 			
 			html += '</div>';
 			return html;
@@ -2008,7 +2009,7 @@
 		function generateFilters() {
 			var html = "";
 			html += '<button onclick="clearFilters()">Clear filters</button>';
-			//html += generateDumpFilter();
+			html += generateDumpFilter();
 			html += generateFilterEntry('amiibo Series', 'amiibo_series');
 			html += generateFilterEntry('Game Series', 'game_series');
 			html += generateFilterEntry('Form', 'types');

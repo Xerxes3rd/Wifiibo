@@ -65,7 +65,7 @@ volatile bool shouldReboot = false;
 
 const int MAX_COUNT_PER_MESSAGE = 25;
 
-const char* versionStr = "1.39";
+const char* versionStr = "1.40";
 const uint32_t nfcVersionStrLen = 64;
 char nfcVersionStr[nfcVersionStrLen];
 
