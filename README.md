@@ -5,6 +5,7 @@ The library that runs most of the amiibo functions is a port of [amiitool](https
 
 ## Features
 * Save/back up existing amiibo
+* Create blank amiibos without any existing dumps (requires encryption keys)
 * Create new ammibos using data files (requires encryption keys)
 * View your amiibo collection using any web browser (even on your phone!)
 
@@ -57,12 +58,14 @@ On Windows, the serial port will be something like `COM5`, on Linux it will be s
 If you don't have the ESP tools installed, but you have python (Linux,Mac), you can try to install them by running the following command from a terminal:
 `pip install esptool`
 
+Starting with 1.40, firmware binaries are created for both the D1 Mini and D1 Lite.  The D1 Lite is configured for a SPI Flash Filesystem size of 256K, so OTA updates are likely impossible on the D1 Lite.
+
 ### Compiling
 Wifiibo depends on a number of additional Arduino libraries (which are needed if you want to compile Wifiibo):
 * [EspAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP) 
 * [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
 * [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
-  * Use version 5; version 6 has a new API that is not yet supported
+  * Either version 5 or 6 should be supported
 
 Wifiibo also uses modified versions of the following libraries; they are included with Wifiibo, so you don't need to download them separately (they also use different library names so they will coexist with existing copies):
 * [Adafruit_PN532](https://github.com/adafruit/Adafruit-PN532)
@@ -119,3 +122,4 @@ Wifiibo mostly uses software & libraries written by others.  The following resou
 * The Wifi scan results JSON info in the main program might need to be changed from static to dynamic to handle a large number of results
 * Bulk upload & download (via ZIP file)
   * This should be handled in the JavaScript frontend, since the ESP8266 doesn't have enough memory to handle it
+  * Bulk upload is supported via multi-file select
