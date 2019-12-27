@@ -29,24 +29,24 @@ Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: OFF, ch2:
 
 Make the following connections between the ESP8266 and the NFC board:
 
-PN532 Pin | ESP Pin
---------|----------
-MOSI | D7
-MISO | D6
-SCK | D5
-SS | D4
-VCC | +5V
-GND | GND
+PN532 Pin | D1 Mini Pin | ESP Pin
+--------|----------|----------
+MOSI | D7 | GPIO 13
+MISO | D6 | GPIO 12
+SCK | D5 | GPIO 14
+SS | D4 | GPIO 2
+VCC | +5V | +5V
+GND | GND | GND
 
-MFRC-522 Pin | ESP Pin
---------|----------
-SDA | D2
-SCK | D5
-MOSI | D7
-MISO | D6
-GND | GND
-RST | D3
-3.3v | 3.3v
+MFRC-522 Pin | D1 Mini Pin | ESP Pin
+--------|----------|----------
+SDA | D2 | GPIO 4
+SCK | D5 | GPIO 14
+MOSI | D7 | GPIO 13
+MISO | D6 | GPIO 12
+GND | GND | GND
+RST | D3 | GPIO 0
+3.3v | 3.3v | 3.3v
 
 ### Flashing
 If you already have the ESP toolchain (or at least utilities) installed, running the following command from a terminal/command prompt will flash the ESP:
