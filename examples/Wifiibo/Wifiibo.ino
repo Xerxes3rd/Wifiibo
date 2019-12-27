@@ -40,6 +40,8 @@ const char* keyfilename = "/key_retail.bin";
 
 Adafruit_PN532Ex pn532(D4);
 MFRC522Ex mfrc522(D2, D3);
+//Adafruit_PN532Ex pn532(2); // For Generic ESP8266
+//MFRC522Ex mfrc522(4, 0); // For Generic ESP8266
 
 volatile bool triggerReadNFC = false;
 volatile bool triggerWriteNFC = false;
