@@ -23,7 +23,9 @@ Upload saved amiibo data:
 ### Hardware
 Wifiibo requires the following hardware:
 * ESP8266 (Wemos D1 Mini from Aliexpress: ~$3)
-* PN532 NFC board (PN532 V3 board from Aliexpress: ~$5) or MFRC522 Board (MFRC522 RFID Reader module from Aliexpress: ~$5)
+* PN532 NFC board (**RECOMMENDED**) (PN532 V3 board from Aliexpress: ~$5) or MFRC522 Board (MFRC522 RFID Reader module from Aliexpress: ~$5)
+
+**WARNING: The MFRC522 library used in Wifiibo is not compatible with newer MFRC522 chips.  The PN532 board is highly recommended instead.**
 
 Remember to flip the DIP switches on the PN532 board to SPI mode (ch1: OFF, ch2: ON).
 
