@@ -105,6 +105,9 @@ Assembled Enclsoure (Open):
 Assembled Enclosure (Closed):  
 ![Enclosure Assembled Closed](/screenshots/enclosure-closed.png?=raw=true "Enclosure Assembled (Closed)")
 
+## PCB
+Jack06WS made a PCB for Wifiibo!  Check it out here: https://github.com/Jack06WS/WifiiboPCB
+
 ## Developer Notes
 * The main Wifiibo page is called amiitool.htm.  There's a python script & accompanying executable that's used to gzip the page, then convert the binary into a C-style header file so the page is embedded in the firmware.  This way, any future firmware updates will contain the updated web page (otherwise users would have to upload it separately).
 * The main page (amiibool.htm) is pretty messy
