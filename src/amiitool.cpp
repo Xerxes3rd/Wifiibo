@@ -410,6 +410,7 @@ int amiitool::readDecryptedFields()
 	}
 	
 	readIDFields(modified, AMIIBO_DEC_CHARDATA_OFFSET, &amiiboInfo);
+	return 0;
 }
 
 void amiitool::readIDFields(uint8_t *data, unsigned short offset, amiiboInfoStruct *info)
@@ -441,6 +442,7 @@ int amiitool::decryptLoadedFile(bool lenient)
 				return -2;
 		//printData(modified, NFC3D_AMIIBO_SIZE, 16, false, false);
 		readDecryptedFields();
+		return 0;
 	}
 	else
 	{
