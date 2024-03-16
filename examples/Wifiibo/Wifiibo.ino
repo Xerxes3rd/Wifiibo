@@ -750,6 +750,7 @@ void handleReconnectWifi(bool force) {
       delay(500);
     }
     
+    WiFi.persistent(true);
     WiFi.mode(WIFI_STA);
     
     if (strlen(newWifiSSID)) {
